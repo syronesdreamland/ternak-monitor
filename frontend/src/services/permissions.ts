@@ -69,9 +69,17 @@ const FULL_ACCESS: WorkspaceModule[] = [
   ...OPERATIONAL_MODULES,
 ];
 
-// Manager: akses penuh operasional, TAPI tidak boleh kelola keuangan & tidak boleh kelola user/system.
+// Manager: akses penuh operasional, TAPI tidak boleh kelola user/system.
+// 'finance' (Laporan Laba Rugi) diizinkan READ-ONLY: canCreate/canEditModule/
+// canDelete tetap menolak Manager untuk FINANCE_MODULES, dan RLS DB hanya
+// memberi SELECT financial_transactions untuk MANAGER.
+// 'invoices' (Pengajuan Dana & Invoice) diizinkan: Manager membuat pengajuan
+// dana sesuai workflow (verifikasi/pencairan tetap Akuntan/Owner).
+// Sidebar allowedRoles HARUS konsisten dengan matrix ini — jika tidak, klik
+// menu akan diam-diam di-bounce kembali ke Dashboard oleh guard canAccess.
 const MANAGER_ACCESS: WorkspaceModule[] = FULL_ACCESS.filter(
-  module => !FINANCE_MODULES.includes(module) && !SYSTEM_MODULES.includes(module),
+  module => !SYSTEM_MODULES.includes(module)
+    && !(FINANCE_MODULES.includes(module) && module !== 'finance' && module !== 'invoices'),
 );
 
 // Finance (ACCOUNTANT): fokus keuangan + dashboard, ternak terbatas (tidak akses data ternak).

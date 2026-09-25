@@ -28,9 +28,22 @@ describe('financial workflow', () => {
   it('requires accountant verification before owner approval', () => {
     const request = store.createFundRequest(fundDraft, { uid: 'mitra', name: 'Mitra', role: 'MITRA' });
     expect(request.status).toBe('Diajukan');
-    expect(() => store.approveFundRequest(request.id, { uid: 'owner', name: 'Owner', role: 'OWNER' })).toThrow(/verifikasi/i);
+    // Alur normal: Owner menyetujui setelah verifikasi Akuntan.
     store.verifyFundRequest(request.id, { uid: 'acc', name: 'Akuntan', role: 'ACCOUNTANT' });
     expect(store.approveFundRequest(request.id, { uid: 'owner', name: 'Owner', role: 'OWNER' }).status).toBe('Disetujui Owner');
+  });
+
+  it('allows owner to approve directly when accountant verification is unavailable', () => {
+    const request = store.createFundRequest(fundDraft, { uid: 'manager', name: 'Manager', role: 'MANAGER' });
+    expect(request.status).toBe('Diajukan');
+    const approved = store.approveFundRequest(request.id, { uid: 'owner', name: 'Owner', role: 'OWNER' });
+    expect(approved.status).toBe('Disetujui Owner');
+    expect(approved.approvedBy).toBe('Owner');
+  });
+
+  it('rejects manager attempt to approve a fund request', () => {
+    const request = store.createFundRequest(fundDraft, { uid: 'manager', name: 'Manager', role: 'MANAGER' });
+    expect(() => store.approveFundRequest(request.id, { uid: 'manager', name: 'Manager', role: 'MANAGER' })).toThrow(/Owner/i);
   });
 
   it('supports installment payments and calculates remaining balance', () => {

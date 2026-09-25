@@ -4,6 +4,7 @@ import { storeService } from '../../services/storeService';
 import { FinancialCategoryType, FinancialTransaction } from '../../types';
 import { formatDate, formatRupiah } from '../../utils/formatters';
 import { FinancePeriodGranularity, summarizeFinancePeriod } from '../../services/financeSummary';
+import { canCreate, canEditModule } from '../../services/permissions';
 
 const categoryOptions: Array<{ value: FinancialCategoryType; label: string }> = [
   { value: 'Penjualan Ternak', label: 'Penjualan Sapi' },
@@ -73,6 +74,7 @@ export const FinanceView: React.FC = () => {
   });
   const { income: totalIncome, expenses: totalExpense, grossProfit, netProfit } = summary;
   const isOwner = currentUser.role === 'OWNER';
+  const canWriteFinance = canCreate(currentUser.role, 'finance') && canEditModule(currentUser.role, 'finance');
   const transactionType: 'income' | 'expense' = category === 'Penjualan Ternak' ? 'income' : 'expense';
 
   const handleOpenModal = (initialCategory: FinancialCategoryType = 'Pakan') => {
@@ -156,7 +158,7 @@ export const FinanceView: React.FC = () => {
             <Wallet className="h-5 w-5 text-[#1B5E20]" />
             <span>Laporan Laba Rugi</span>
           </h2>
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-500 sm:text-xs">Catat pemasukan penjualan sapi dan seluruh pengeluaran operasional peternakan.</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-500 sm:text-xs">{canWriteFinance ? 'Catat pemasukan penjualan sapi dan seluruh pengeluaran operasional peternakan.' : 'Ringkasan pemasukan, pengeluaran, dan laba. Pencatatan dilakukan oleh Owner/Akuntan.'}</p>
         </div>
       </header>
 
@@ -195,6 +197,7 @@ export const FinanceView: React.FC = () => {
               aria-label={`Pilih periode ringkasan ${granularity === 'month' ? 'bulanan' : 'tahunan'}`}
             />
           </label>
+          {canWriteFinance && (
           <button
             type="button"
             onClick={() => handleOpenModal('Penjualan Ternak')}
@@ -202,6 +205,8 @@ export const FinanceView: React.FC = () => {
           >
             <Plus className="h-4 w-4" /> <span><span className="hidden sm:inline">Catat </span>Penjualan</span>
           </button>
+          )}
+          {canWriteFinance && (
           <button
             type="button"
             onClick={() => handleOpenModal('Pakan')}
@@ -209,6 +214,7 @@ export const FinanceView: React.FC = () => {
           >
             <Plus className="h-4 w-4" /> <span><span className="hidden sm:inline">Catat </span>Pengeluaran</span>
           </button>
+          )}
         </div>
       </section>
 
@@ -308,9 +314,11 @@ export const FinanceView: React.FC = () => {
                 </div>
 
                 <div className="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-2.5">
+                  {canWriteFinance && (
                   <button type="button" onClick={() => handleEditTransaction(transaction)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-blue-50 px-3 text-[10px] font-bold text-blue-700" aria-label={`Edit transaksi ${transaction.invoiceNo}`}>
                     <Pencil className="h-3.5 w-3.5" /> Edit
                   </button>
+                  )}
                   {isOwner && (
                     <button type="button" onClick={() => handleDeleteTransaction(transaction)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-rose-50 px-3 text-[10px] font-bold text-rose-700" aria-label={`Hapus transaksi ${transaction.invoiceNo}`}>
                       <Trash2 className="h-3.5 w-3.5" /> Hapus
@@ -355,9 +363,11 @@ export const FinanceView: React.FC = () => {
                   <td className="whitespace-nowrap p-3.5 text-slate-500">{transaction.paymentMethod}</td>
                   <td className="p-3.5">
                     <div className="flex items-center justify-end gap-1">
+                      {canWriteFinance && (
                       <button type="button" onClick={() => handleEditTransaction(transaction)} title="Edit transaksi" aria-label={`Edit transaksi ${transaction.invoiceNo}`} className="rounded-lg p-1.5 text-blue-700 transition hover:bg-blue-50">
                         <Pencil className="h-4 w-4" />
                       </button>
+                      )}
                       {isOwner && (
                         <button type="button" onClick={() => handleDeleteTransaction(transaction)} title="Hapus transaksi (khusus Owner)" aria-label={`Hapus transaksi ${transaction.invoiceNo}`} className="rounded-lg p-1.5 text-rose-700 transition hover:bg-rose-50">
                           <Trash2 className="h-4 w-4" />

@@ -94,7 +94,11 @@ export class FinancialDocumentsStore {
   }
   approveFundRequest(requestId: string, actor: Actor) {
     this.requireRole(actor, ['OWNER'], 'Hanya Owner yang dapat memberikan persetujuan akhir.');
-    const request = this.mustRequest(requestId); if (request.status !== 'Diverifikasi Akuntan') throw new Error('Pengajuan harus melalui verifikasi Akuntan.');
+    const request = this.mustRequest(requestId);
+    // Owner dapat menyetujui langsung dari 'Diajukan' (verifikasi Akuntan dilewati,
+    // dipakai saat Akuntan tidak tersedia) ATAU dari 'Diverifikasi Akuntan' (alur normal).
+    if (request.status !== 'Diajukan' && request.status !== 'Diverifikasi Akuntan') throw new Error('Pengajuan tidak dapat disetujui pada status ini.');
+    if (request.status === 'Diajukan') request.verifiedBy = actor.name + ' (Owner menyetujui langsung)';
     request.status = 'Disetujui Owner'; request.approvedBy = actor.name; this.audit(actor, 'Setujui Pengajuan', request.id); this.save(); return request;
   }
   updateFundStatus(requestId: string, status: FundStatus, reason: string, actor: Actor) {
