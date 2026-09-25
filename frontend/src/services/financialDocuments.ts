@@ -28,7 +28,7 @@ export interface WorkflowAudit { id: string; at: string; actor: string; role: Us
 export interface WorkflowAlert { id: string; at: string; title: string; message: string; targetId: string }
 interface WorkflowState { fundRequests: FundRequest[]; invoices: Invoice[]; audits: WorkflowAudit[]; alerts: WorkflowAlert[] }
 
-const STORAGE_KEY = 'duta_agro_financial_documents_v1';
+const STORAGE_KEY = 'duta_agri_financial_documents_v2';
 const emptyState = (): WorkflowState => ({ fundRequests: [], invoices: [], audits: [], alerts: [] });
 const now = () => new Date().toISOString();
 const id = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;

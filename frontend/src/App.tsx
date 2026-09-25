@@ -12,7 +12,6 @@ import { canAccess, canEdit } from './services/permissions';
 
 import { storeService } from './services/storeService';
 import { authAPI, authSession } from './services/api';
-import { getStaticDemoSession, getStaticDemoSessionFromToken, shouldUseStaticDemoFallback } from './services/demoAuth';
 import { supabaseSignIn, supabaseRestore, supabaseSignOut } from './services/supabase';
 import { dataSync } from './services/dataSync';
 import { LivestockItem, UserProfile } from './types';
@@ -105,17 +104,10 @@ export function App() {
         return;
       }
 
-      // 2) Legacy static-demo / backend token fallback.
+      // 2) Backend legacy token (tanpa fallback demo statis).
       const token = authSession.getToken();
       if (!token) {
         setAuthState('guest');
-        return;
-      }
-      const staticDemoSession = getStaticDemoSessionFromToken(token);
-      if (staticDemoSession) {
-        storeService.setCurrentUser(staticDemoSession.user);
-        setActiveTab(staticDemoSession.user.role === 'MITRA' ? 'livestock' : 'dashboard');
-        setAuthState('authenticated');
         return;
       }
       try {
@@ -167,15 +159,7 @@ export function App() {
       throw new Error((supabaseResult as { ok: false; error: string }).error);
     }
 
-    // 2) Fallback: static demo / backend legacy.
-    const exactDemoSession = getStaticDemoSession(email, password);
-    if (exactDemoSession) {
-      authSession.setToken(exactDemoSession.token);
-      storeService.setCurrentUser(exactDemoSession.user);
-      setActiveTab(exactDemoSession.user.role === 'MITRA' ? 'livestock' : 'dashboard');
-      setAuthState('authenticated');
-      return;
-    }
+    // 2) Backend legacy (dinonaktifkan pada produksi Supabase; tanpa fallback demo).
     try {
       const response = await authAPI.login(email, password);
       const { token, user } = response.data.data as { token: string; user: UserProfile };
@@ -184,16 +168,6 @@ export function App() {
       setActiveTab(user.role === 'USER' ? 'catalog' : 'dashboard');
       setAuthState('authenticated');
     } catch (error: any) {
-      if (shouldUseStaticDemoFallback(error.response?.status)) {
-        const demoSession = getStaticDemoSession(email, password);
-        if (demoSession) {
-          authSession.setToken(demoSession.token);
-          storeService.setCurrentUser(demoSession.user);
-          setActiveTab('dashboard');
-          setAuthState('authenticated');
-          return;
-        }
-      }
       const message = error.response?.data?.error || 'Tidak dapat terhubung ke server. Periksa koneksi lalu coba kembali.';
       throw new Error(message);
     }

@@ -13,7 +13,7 @@ import {
 // Data disimpan ke localStorage; sinkron ke Supabase via dataSync.
 // ============================================================================
 
-const KEY = 'ternak_agro_v1';
+const KEY = 'ternak_agro_v2';
 
 /** Nama tabel DB untuk tiap koleksi (untuk key sync dataSync). */
 const COLLECTION_TABLE: Record<string, string> = {
