@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Pencil, Plus, ReceiptText, Trash2, WalletCards, X } from 'lucide-react';
+import { ArrowRight, Camera, Pencil, Plus, ReceiptText, Trash2, WalletCards, X } from 'lucide-react';
 import { storeService } from '../../services/storeService';
+import { saveAttachments, getAttachment, parseAttachmentId } from '../../services/r2Storage';
+import { canEditModule, canDelete } from '../../services/permissions';
 import { FinancialTransaction } from '../../types';
 import { formatDate, formatRupiah } from '../../utils/formatters';
 
@@ -28,8 +30,13 @@ export const ExpenseManagementView: React.FC<ExpenseManagementViewProps> = ({ on
   const [locations, setLocations] = useState(storeService.locations);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [proofFiles, setProofFiles] = useState<File[]>([]);
   const currentPeriod = new Date().toISOString().slice(0, 7);
   const [selectedPeriod, setSelectedPeriod] = useState(currentPeriod);
+  const role = storeService.currentUser.role;
+  // v1.1: menu Pengeluaran adalah area kerja Manager (inputer keuangan).
+  const canManageExpense = canEditModule(role, 'expenses');
+  const canRemoveExpense = canDelete(role, 'expenses');
 
   const [category, setCategory] = useState<OperationalExpenseCategory>('Pakan');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -90,7 +97,7 @@ export const ExpenseManagementView: React.FC<ExpenseManagementViewProps> = ({ on
     const location = locations.find(item => item.id === locationId) ?? locations[0];
     if (!location) return;
 
-    const expenseData = {
+    const expenseData: Omit<FinancialTransaction, 'id' | 'createdAt'> = {
       invoiceNo,
       date,
       type: 'expense' as const,
@@ -104,14 +111,27 @@ export const ExpenseManagementView: React.FC<ExpenseManagementViewProps> = ({ on
       createdBy: storeService.currentUser.displayName,
     };
 
-    if (editingId) {
-      storeService.updateFinancialTransaction(editingId, expenseData);
-    } else {
-      storeService.addFinancialTransaction(expenseData);
-    }
-    setSelectedPeriod(date.slice(0, 7));
-    setEditingId(null);
-    setIsModalOpen(false);
+    const finish = async () => {
+      // v1.1 Pindai Nota: foto bukti transaksi diunggah ke R2 dan ditautkan
+      // ke kolom proofUrl transaksi (tampil di riwayat + laporan Owner).
+      if (proofFiles.length > 0) {
+        try {
+          const ids = await saveAttachments(proofFiles);
+          const parsed = parseAttachmentId(ids[0]);
+          if (parsed.url) expenseData.proofUrl = parsed.url;
+        } catch (error) {
+          console.error('Upload nota gagal:', error);
+          window.alert('Pengeluaran tetap tersimpan, namun unggah nota gagal. Coba unggah ulang lewat Edit.');
+        }
+      }
+      if (editingId) storeService.updateFinancialTransaction(editingId, expenseData);
+      else storeService.addFinancialTransaction(expenseData);
+      setSelectedPeriod(date.slice(0, 7));
+      setEditingId(null);
+      setProofFiles([]);
+      setIsModalOpen(false);
+    };
+    void finish();
   };
 
   const deleteExpense = (transaction: FinancialTransaction) => {
@@ -149,9 +169,11 @@ export const ExpenseManagementView: React.FC<ExpenseManagementViewProps> = ({ on
               <span className="text-[10px] font-bold text-slate-500">Periode</span>
               <input type="month" value={selectedPeriod} onChange={event => setSelectedPeriod(event.target.value || currentPeriod)} className="bg-transparent text-xs font-bold text-slate-800 outline-none" aria-label="Pilih periode pengeluaran" />
             </label>
+            {canManageExpense && (
             <button type="button" onClick={() => openNewExpense()} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#123D18] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#1B5E20]">
               <Plus className="h-4 w-4" /> Catat Pengeluaran
             </button>
+            )}
           </div>
         </div>
 
@@ -211,8 +233,8 @@ export const ExpenseManagementView: React.FC<ExpenseManagementViewProps> = ({ on
                 <span className="truncate text-right">{transaction.paymentMethod}</span>
               </div>
               <div className="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-2.5">
-                <button type="button" onClick={() => openEditExpense(transaction)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-blue-50 px-3 text-[10px] font-bold text-blue-700"><Pencil className="h-3.5 w-3.5" /> Edit</button>
-                <button type="button" onClick={() => deleteExpense(transaction)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-rose-50 px-3 text-[10px] font-bold text-rose-700"><Trash2 className="h-3.5 w-3.5" /> Hapus</button>
+                {canManageExpense && <button type="button" onClick={() => openEditExpense(transaction)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-blue-50 px-3 text-[10px] font-bold text-blue-700"><Pencil className="h-3.5 w-3.5" /> Edit</button>}
+                {canRemoveExpense && <button type="button" onClick={() => deleteExpense(transaction)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-rose-50 px-3 text-[10px] font-bold text-rose-700"><Trash2 className="h-3.5 w-3.5" /> Hapus</button>}
               </div>
             </article>
           ))}
@@ -235,7 +257,7 @@ export const ExpenseManagementView: React.FC<ExpenseManagementViewProps> = ({ on
                   <td className="min-w-52 p-3.5 font-semibold text-slate-700">{transaction.description}</td>
                   <td className="whitespace-nowrap p-3.5 text-slate-600">{transaction.locationName}</td>
                   <td className="whitespace-nowrap p-3.5 text-right font-mono text-sm font-bold text-rose-600">-{formatRupiah(transaction.amount)}</td>
-                  <td className="p-3.5"><div className="flex justify-end gap-1"><button type="button" onClick={() => openEditExpense(transaction)} className="rounded-lg p-1.5 text-blue-700 hover:bg-blue-50" aria-label={`Edit ${transaction.invoiceNo}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => deleteExpense(transaction)} className="rounded-lg p-1.5 text-rose-700 hover:bg-rose-50" aria-label={`Hapus ${transaction.invoiceNo}`}><Trash2 className="h-4 w-4" /></button></div></td>
+                  <td className="p-3.5"><div className="flex justify-end gap-1">{canManageExpense && <button type="button" onClick={() => openEditExpense(transaction)} className="rounded-lg p-1.5 text-blue-700 hover:bg-blue-50" aria-label={`Edit ${transaction.invoiceNo}`}><Pencil className="h-4 w-4" /></button>}{canRemoveExpense && <button type="button" onClick={() => deleteExpense(transaction)} className="rounded-lg p-1.5 text-rose-700 hover:bg-rose-50" aria-label={`Hapus ${transaction.invoiceNo}`}><Trash2 className="h-4 w-4" /></button>}{transaction.proofUrl && <a href={transaction.proofUrl} target="_blank" rel="noopener noreferrer" className="rounded-lg p-1.5 text-[#1B5E20] hover:bg-emerald-50" aria-label={`Lihat nota ${transaction.invoiceNo}`}><Camera className="h-4 w-4" /></a>}</div></td>
                 </tr>
               ))}
               {expenses.length === 0 && <tr><td colSpan={7} className="p-10 text-center text-slate-400">Belum ada pengeluaran pada periode {periodLabel}.</td></tr>}
@@ -270,6 +292,15 @@ export const ExpenseManagementView: React.FC<ExpenseManagementViewProps> = ({ on
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div><label className="mb-1 block font-bold text-slate-700">Metode Pembayaran</label><select value={paymentMethod} onChange={event => setPaymentMethod(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#1B5E20]"><option value="Transfer Bank">Transfer Bank</option><option value="Tunai">Tunai</option><option value="Giro">Giro</option></select></div>
                 <div><label className="mb-1 block font-bold text-slate-700">Penerima</label><input value={payeePayer} onChange={event => setPayeePayer(event.target.value)} placeholder="Supplier atau penerima" className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-[#1B5E20]" /></div>
+              </div>
+              <div>
+                <label className="mb-1 block font-bold text-slate-700">Pindai Nota (foto bukti)</label>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-[#1B5E20] bg-[#F8FAFC] px-3 py-2.5 text-xs font-bold text-[#1B5E20]">
+                  <Camera className="h-4 w-4" />
+                  {proofFiles.length > 0 ? `${proofFiles.length} file siap diunggah — ketuk untuk mengganti` : 'Ambil foto nota / pilih file (maks 5 MB)'}
+                  <input type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" className="hidden" onChange={event => { setProofFiles([...(event.target.files ?? [])]); event.target.value=''; }} />
+                </label>
+                {proofFiles.length > 0 && <p className="mt-1 text-[10px] text-slate-400">{proofFiles.map(file => file.name).join(', ')}</p>}
               </div>
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onClick={() => setIsModalOpen(false)} className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700">Batal</button><button type="submit" className="rounded-lg bg-[#123D18] px-5 py-2 font-bold text-white hover:bg-[#1B5E20]">{editingId ? 'Simpan Perubahan' : 'Simpan Pengeluaran'}</button></div>
             </form>

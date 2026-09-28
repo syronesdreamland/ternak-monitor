@@ -724,10 +724,13 @@ begin
     $p$, t);
   end loop;
 
-  -- B) Keuangan: OWNER/ACCOUNTANT penuh; MANAGER & MITRA tanpa akses tulis
+  -- B) Keuangan (v1.1): financial_transactions & cash_transactions punya policy
+  --    khusus (Manager = inputer; Finance view-only) — lihat blok setelah loop.
+  --    Sisanya: OWNER/ACCOUNTANT penuh; MANAGER & MITRA tanpa akses tulis,
+  --    kecuali purchase_requests yang boleh di-INSERT Manager (v1.1).
   foreach t in array array[
-    'sales_records','financial_transactions','cash_transactions',
-    'lpj_reports','approval_requests','purchase_requests','purchase_orders'
+    'sales_records',
+    'lpj_reports','approval_requests','purchase_orders'
   ]
   loop
     execute format('drop policy if exists "role_manage" on public.%I;', t);
@@ -774,6 +777,68 @@ begin
     using (true)
     with check (true);
   $p$;
+  -- B1b) v1.1 two pillars: financial_transactions & cash_transactions —
+  --      Manager = inputer (INSERT), Owner = penuh, Accountant view-only.
+  execute 'drop policy if exists "role_read" on public.financial_transactions;';
+  execute 'drop policy if exists "role_insert" on public.financial_transactions;';
+  execute 'drop policy if exists "role_update" on public.financial_transactions;';
+  execute 'drop policy if exists "role_delete" on public.financial_transactions;';
+  execute $p$
+    create policy "role_read" on public.financial_transactions
+    for select to authenticated
+    using (public.current_role() = any (array['OWNER','ACCOUNTANT','MANAGER']));
+  $p$;
+  execute $p$
+    create policy "role_insert" on public.financial_transactions
+    for insert to authenticated
+    with check (public.current_role() = any (array['OWNER','MANAGER']));
+  $p$;
+  execute $p$
+    create policy "role_update" on public.financial_transactions
+    for update to authenticated
+    using (public.current_role() = 'OWNER')
+    with check (public.current_role() = 'OWNER');
+  $p$;
+  execute $p$
+    create policy "role_delete" on public.financial_transactions
+    for delete to authenticated
+    using (public.current_role() = 'OWNER');
+  $p$;
+
+  execute 'drop policy if exists "role_read" on public.cash_transactions;';
+  execute 'drop policy if exists "role_insert" on public.cash_transactions;';
+  execute 'drop policy if exists "role_update" on public.cash_transactions;';
+  execute 'drop policy if exists "role_delete" on public.cash_transactions;';
+  execute $p$
+    create policy "role_read" on public.cash_transactions
+    for select to authenticated
+    using (public.current_role() = any (array['OWNER','ACCOUNTANT','MANAGER']));
+  $p$;
+  execute $p$
+    create policy "role_insert" on public.cash_transactions
+    for insert to authenticated
+    with check (public.current_role() = any (array['OWNER','MANAGER']));
+  $p$;
+  execute $p$
+    create policy "role_update" on public.cash_transactions
+    for update to authenticated
+    using (public.current_role() = 'OWNER')
+    with check (public.current_role() = 'OWNER');
+  $p$;
+  execute $p$
+    create policy "role_delete" on public.cash_transactions
+    for delete to authenticated
+    using (public.current_role() = 'OWNER');
+  $p$;
+
+  -- B1c) v1.1: purchase_requests boleh dibuat Manager (permintaan pembelian)
+  execute 'drop policy if exists "role_insert" on public.purchase_requests;';
+  execute $p$
+    create policy "role_insert" on public.purchase_requests
+    for insert to authenticated
+    with check (public.current_role() = any (array['OWNER','MANAGER','ACCOUNTANT']));
+  $p$;
+
   -- B2) invoices: + MITRA boleh read
   execute 'drop policy if exists "role_manage" on public.invoices;';
   execute 'drop policy if exists "role_read" on public.invoices;';

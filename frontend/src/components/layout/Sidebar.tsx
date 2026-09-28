@@ -40,12 +40,13 @@ export const navigationSections: NavSection[] = [
   },
   {
     label: 'Finance control',
+    // v1.1 two pillars: Manager = satu-satunya inputer keuangan; Owner = lihat
+    // semua menu keuangan + approval; Finance = view only keuangan.
     items: [
-      { id: 'finance-dashboard', label: 'Dashboard Finance', description: 'Kas & laba ringkas', icon: Landmark, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
-      { id: 'approval-center', label: 'Approval Center', description: 'Persetujuan terpusat', icon: ShieldCheck, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
-      { id: 'cash-flow', label: 'Kas Masuk & Keluar', description: 'Arus kas harian', icon: Banknote, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
-      { id: 'lpj', label: 'LPJ Pertanggungjawaban', description: 'Laporan pertanggungjawaban', icon: Scale, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
-      { id: 'invoices', label: 'Pengajuan Dana & Invoice', description: 'Dana, tagihan & bukti bayar', icon: FileText, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT', 'MITRA'] },
+      { id: 'finance-dashboard', label: 'Dashboard Finance', description: 'Kas & laba ringkas', icon: Landmark, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+      { id: 'approval-center', label: 'Approval Center', description: 'Persetujuan terpusat', icon: ShieldCheck, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+      { id: 'cash-flow', label: 'Kas Masuk & Keluar', description: 'Arus kas harian', icon: Banknote, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+      { id: 'invoices', label: 'Pengajuan Dana & Invoice', description: 'Dana, realisasi & bukti bayar', icon: FileText, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT', 'MITRA'] },
     ],
   },
   {
@@ -87,19 +88,21 @@ export const navigationSections: NavSection[] = [
   },
   {
     label: 'Bisnis & keuangan',
+    // v1.1: Manager inputer keuangan; Owner & Finance melihat laporan;
+    // Pengeluaran (dengan Pindai Nota) khusus Manager.
     items: [
-      { id: 'transactions', label: 'Jual & Beli', description: 'Transaksi ternak', icon: ShoppingCart, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
-      { id: 'sales-results', label: 'Hasil Penjualan', description: 'HPP, biaya & laba bersih', icon: BadgeDollarSign, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
-      { id: 'finance', label: 'Laporan Laba Rugi', description: 'Pemasukan, biaya & laba', icon: Wallet, allowedRoles: ['OWNER', 'ACCOUNTANT', 'MANAGER'] },
-      { id: 'expenses', label: 'Pengeluaran', description: 'Biaya operasional', icon: ReceiptText, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
+      { id: 'transactions', label: 'Jual & Beli', description: 'Transaksi ternak', icon: ShoppingCart, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+      { id: 'sales-results', label: 'Hasil Penjualan', description: 'HPP, biaya & laba bersih', icon: BadgeDollarSign, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+      { id: 'finance', label: 'Laporan Laba Rugi', description: 'Pemasukan, biaya & laba', icon: Wallet, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+      { id: 'expenses', label: 'Pengeluaran', description: 'Biaya operasional & nota', icon: ReceiptText, allowedRoles: ['MANAGER'] },
     ],
   },
   {
     label: 'Inventory & purchasing',
     items: [
-      { id: 'inventory', label: 'Stok & Mutasi Barang', description: 'Inventori & mutasi stok', icon: Package, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
-      { id: 'purchase-request', label: 'Purchase Request & PO', description: 'Permintaan & pesanan', icon: PackagePlus, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
-      { id: 'purchase-order', label: 'Purchase Order (PO)', description: 'Pesanan pembelian', icon: FileStack, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
+      { id: 'inventory', label: 'Stok & Mutasi Barang', description: 'Inventori & mutasi stok', icon: Package, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+      { id: 'purchase-request', label: 'Purchase Request & PO', description: 'Permintaan & pesanan', icon: PackagePlus, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
+      { id: 'purchase-order', label: 'Purchase Order (PO)', description: 'Pesanan pembelian', icon: FileStack, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
     ],
   },
   {
@@ -115,7 +118,6 @@ export const navigationSections: NavSection[] = [
     label: 'Laporan',
     items: [
       { id: 'daily-reports', label: 'Laporan Kandang', description: 'Aktivitas harian', icon: ClipboardList, allowedRoles: ['OWNER', 'MANAGER'] },
-      { id: 'reports', label: 'Laporan & Google Sheets', description: 'Dokumen PDF & Excel', icon: FileBarChart, allowedRoles: ['OWNER', 'ACCOUNTANT'] },
     ],
   },
   {

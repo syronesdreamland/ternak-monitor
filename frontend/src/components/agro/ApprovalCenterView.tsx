@@ -14,7 +14,9 @@ export const ApprovalCenterView: React.FC = () => {
   useEffect(() => agroStore.subscribe(() => setVersion(v => v + 1)), []);
 
   const role = storeService.currentUser.role;
-  const canDecide = role === 'OWNER' || role === 'MANAGER';
+  // v1.1 two pillars: persetujuan hanya milik OWNER (Manager = eksekutor,
+  // bukan pengambil keputusan). Lainnya view-only.
+  const canDecide = role === 'OWNER';
   const actorName = storeService.currentUser.displayName;
 
   const filtered = state.approvals.filter(a => a.status === tab);
@@ -99,7 +101,7 @@ export const ApprovalCenterView: React.FC = () => {
 
       {!canDecide && (
         <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500">
-          <Scale className="h-4 w-4" /> Hanya Owner dan Manager yang dapat menyetujui atau menolak pengajuan.
+          <Scale className="h-4 w-4" /> Hanya Owner yang dapat menyetujui atau menolak pengajuan.
         </div>
       )}
     </div>
