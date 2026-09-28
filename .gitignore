@@ -11,6 +11,9 @@ backend/data/development-users.json
 # Local isolated worktrees
 .worktrees/
 
+# Local python venv (utilitas DB)
+.venv-sb/
+
 # Local brainstorming/agent scratch (not part of the app)
 .superpowers/
 .vercel
