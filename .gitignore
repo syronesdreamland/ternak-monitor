@@ -15,3 +15,6 @@ backend/data/development-users.json
 .superpowers/
 .vercel
 supabase/.temp/
+
+# Local audit scratch (backup/restore investigation, bukan bagian app)
+.audit/
