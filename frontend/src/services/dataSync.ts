@@ -513,19 +513,13 @@ class DataSync {
           const { data, error } = await query;
           if (error) { console.warn(`[dataSync] pull ${m.def.table}:`, error.message); continue; }
           if (!data || data.length === 0) {
-            // DB kosong. Bedakan seed demo vs data tersimpan asli:
-            // - localStorage belum pernah di-save (null) -> in-memory murni seed
-            //   demo -> bersihkan (produksi mulai dari nol, dummy tidak ikut push).
-            // - ada data tersimpan -> pertahankan (kemungkinan data asli user,
-            //   akan ter-push pada mutasi berikutnya / pushAll).
-            const raw = localStorage.getItem(m.key);
-            if (raw === null) {
-              m.set([] as never[]);
-              lastSynced.set(m.key, '[]');
-              changed = true;
-            } else {
-              lastSynced.set(m.key, serialize(m.get() as never[], m.def as never));
-            }
+            // DB kosong = sumber kebenaran produksi. Selalu kosongkan lokal
+            // apa pun adanya: data lama perangkat tidak boleh bangkit kembali
+            // (perilaku lama "pertahankan lokal" membuat dummy muncul lagi
+            // setelah refresh dan bisa ter-push balik ke DB saat mutasi).
+            m.set([] as never[]);
+            lastSynced.set(m.key, '[]');
+            changed = true;
             continue;
           }
           const rows = data as Record<string, unknown>[];
