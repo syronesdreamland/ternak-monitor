@@ -32,10 +32,21 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 // ============================================================================
-// Permission matrix sesuai dokumen RBAC.
-// Owner = penuh; Manager = kelola operasional ternak (bukan edit/hapus ternak,
-// bukan keuangan, bukan kelola user); Finance = kelola keuangan (view+input+
-// edit/hapus transaksi), ternak terbatas; Mitra = read-only data mitra.
+// MATRIX HAK AKSES v1.1 — "Two Pillars" (Owner = Monitor & Approval,
+// Manager = Eksekusi & Input Data). Lihat dokumen revisi 2026-09-28.
+//
+// 1) OWNER  = pemantau & pengambil keputusan, BUKAN input harian:
+//    akses LIHAT semua modul, tetapi input hanya via approval pengajuan dana
+//    (approveFundRequest) + aksi pengawasan (batalkan invoice). Form tambah/
+//    edit/hapus data dimatikan (canCreate/canEditModule/canDelete = false).
+// 2) MANAGER = satu-satunya eksekutor & input data: seluruh modul operasional
+//    DAN keuangan (kas masuk/keluar, pengeluaran, invoice, PO) bisa di-input.
+//    Edit/hapus data transaksi tetap terbatas (koreksi via Owner/Developer).
+// 3) FINANCE (ACCOUNTANT) = View Only khusus menu keuangan (lihat transaksi
+//    tanpa form input), sesuai catatan tambahan dokumen revisi.
+// 4) MITRA = tidak diubah pada v1.1 (read-only).
+// Sidebar allowedRoles HARUS konsisten dengan matrix ini — jika tidak, klik
+// menu akan diam-diam di-bounce kembali ke Dashboard oleh guard canAccess.
 // ============================================================================
 
 // Module ternak (livestock/feed/weight/health/births) — Finance TIDAK akses, Mitra akses read-only.
@@ -43,7 +54,10 @@ const LIVESTOCK_MODULES: WorkspaceModule[] = [
   'livestock', 'feed', 'weight', 'health', 'births-deaths', 'livestock-docs',
 ];
 
-// Module keuangan — hanya OWNER & ACCOUNTANT (Finance).
+// Module keuangan.
+// v1.1: Manager jadi inputer keuangan (masuk MATRIX_MANAGE); Owner & Finance
+// tetap bisa MELIHAT semua menu keuangan, tapi Owner tidak menginput harian
+// dan Finance view-only.
 const FINANCE_MODULES: WorkspaceModule[] = [
   'finance', 'expenses', 'sales-results', 'transactions',
   'finance-dashboard', 'approval-center', 'cash-flow', 'lpj',
@@ -61,28 +75,23 @@ const OPERATIONAL_MODULES: WorkspaceModule[] = [
   'wildlife', 'wildlife-feed',
 ];
 
+// v1.1: seluruh modul operasional + keuangan = area kerja Manager.
 const FULL_ACCESS: WorkspaceModule[] = [
   'dashboard',
   ...LIVESTOCK_MODULES,
   ...FINANCE_MODULES,
-  ...SYSTEM_MODULES,
   ...OPERATIONAL_MODULES,
 ];
 
-// Manager: akses penuh operasional, TAPI tidak boleh kelola user/system.
-// 'finance' (Laporan Laba Rugi) diizinkan READ-ONLY: canCreate/canEditModule/
-// canDelete tetap menolak Manager untuk FINANCE_MODULES, dan RLS DB hanya
-// memberi SELECT financial_transactions untuk MANAGER.
-// 'invoices' (Pengajuan Dana & Invoice) diizinkan: Manager membuat pengajuan
-// dana sesuai workflow (verifikasi/pencairan tetap Akuntan/Owner).
-// Sidebar allowedRoles HARUS konsisten dengan matrix ini — jika tidak, klik
-// menu akan diam-diam di-bounce kembali ke Dashboard oleh guard canAccess.
-const MANAGER_ACCESS: WorkspaceModule[] = FULL_ACCESS.filter(
-  module => !SYSTEM_MODULES.includes(module)
-    && !(FINANCE_MODULES.includes(module) && module !== 'finance' && module !== 'invoices'),
-);
+// v1.1: Owner MEMANTAU semua (dashboard + operasional + keuangan) tapi bukan
+// inputer. canCreate/canEditModule/canDelete di bawah mematikan form input.
+const OWNER_ACCESS: WorkspaceModule[] = FULL_ACCESS;
 
-// Finance (ACCOUNTANT): fokus keuangan + dashboard, ternak terbatas (tidak akses data ternak).
+// Manager: akses penuh operasional + keuangan, TAPI tidak boleh kelola user/system.
+const MANAGER_ACCESS: WorkspaceModule[] = FULL_ACCESS;
+
+// Finance (ACCOUNTANT): View Only khusus keuangan — dashboard, notifikasi,
+// dan seluruh modul keuangan (baca), TANPA modul operasional/ternak.
 const ACCOUNTANT_ACCESS: WorkspaceModule[] = [
   'dashboard', 'notifications',
   ...FINANCE_MODULES,
@@ -99,13 +108,13 @@ const MITRA_ACCESS: WorkspaceModule[] = [
 ];
 
 const ROLE_ACCESS: Record<UserRole, WorkspaceModule[]> = {
-  OWNER: FULL_ACCESS,
+  OWNER: OWNER_ACCESS,
   MANAGER: MANAGER_ACCESS,
   ACCOUNTANT: ACCOUNTANT_ACCESS,
   MITRA: MITRA_ACCESS,
   ADMIN: FULL_ACCESS,
   USER: [],
-  DEVELOPER: FULL_ACCESS,
+  DEVELOPER: ['dashboard', 'notifications', ...SYSTEM_MODULES, ...FULL_ACCESS],
 };
 
 export function canAccess(role: UserRole, module: WorkspaceModule): boolean {
@@ -113,55 +122,49 @@ export function canAccess(role: UserRole, module: WorkspaceModule): boolean {
 }
 
 // ============================================================================
-// Edit permission — granular per module (sesuai dokumen).
+// Edit permission — granular per module (v1.1: two pillars).
 // ============================================================================
 
 /**
  * Boleh MENAMBAH data di module tertentu.
- * - Owner/Developer: semua.
- * - Manager: boleh tambah data ternak & operasional (BUKAN keuangan, BUKAN user).
- * - Finance: boleh input transaksi keuangan.
- * - Mitra: TIDAK boleh tambah apa pun (read-only).
+ * v1.1: MANAGER = satu-satunya inputer (operasional + keuangan).
+ * DEVELOPER/ADMIN = akses teknis penuh. OWNER & FINANCE tidak menginput
+ * harian (Owner fokus approval; Finance view-only).
+ * Mitra: TIDAK boleh tambah apa pun (read-only).
  */
 export function canCreate(role: UserRole, module: WorkspaceModule): boolean {
-  if (role === 'OWNER' || role === 'DEVELOPER' || role === 'ADMIN') return true;
-  if (role === 'MANAGER') return !FINANCE_MODULES.includes(module) && !SYSTEM_MODULES.includes(module);
-  if (role === 'ACCOUNTANT') return FINANCE_MODULES.includes(module);
-  return false; // MITRA / USER
+  if (role === 'MANAGER' || role === 'DEVELOPER' || role === 'ADMIN') return !SYSTEM_MODULES.includes(module);
+  return false;
 }
 
 /**
  * Boleh MENGEDIT data di module tertentu.
- * - Owner/Developer: semua.
- * - Finance: boleh edit transaksi keuangan.
- * - Manager: TIDAK boleh edit ternak (sesuai dokumen "Edit data ternak ✗").
- * - Mitra: TIDAK boleh edit.
+ * v1.1: hanya MANAGER (di areanya) + DEVELOPER/ADMIN. Owner tidak mengedit
+ * (monitor & approval), Finance view-only, Mitra read-only.
  */
 export function canEditModule(role: UserRole, module: WorkspaceModule): boolean {
-  if (role === 'OWNER' || role === 'DEVELOPER' || role === 'ADMIN') return true;
-  if (role === 'ACCOUNTANT') return FINANCE_MODULES.includes(module);
-  return false; // MANAGER tidak bisa edit (dokumen: edit ternak ✗), MITRA read-only
+  if (role === 'DEVELOPER' || role === 'ADMIN') return true;
+  if (role === 'MANAGER') return !SYSTEM_MODULES.includes(module);
+  return false;
 }
 
 /**
  * Boleh MENGHAPUS data di module tertentu.
- * - Owner/Developer: semua.
- * - Finance: boleh hapus transaksi keuangan.
- * - Lainnya: tidak.
+ * v1.1: hanya MANAGER (di areanya) + DEVELOPER/ADMIN.
  */
 export function canDelete(role: UserRole, module: WorkspaceModule): boolean {
-  if (role === 'OWNER' || role === 'DEVELOPER' || role === 'ADMIN') return true;
-  if (role === 'ACCOUNTANT') return FINANCE_MODULES.includes(module);
+  if (role === 'DEVELOPER' || role === 'ADMIN') return true;
+  if (role === 'MANAGER') return !SYSTEM_MODULES.includes(module);
   return false;
 }
 
 /**
  * Legacy helper (broad "can edit anything") — dipakai untuk gate tombol global
- * seperti "Catat Data" dan modal add. Pertahankan untuk OWNER/DEVELOPER + Finance.
- * Manager diperbolehkan buat tambah (create) tapi bukan edit/hapus.
+ * seperti "Catat Data" dan modal add. v1.1: hanya MANAGER + DEVELOPER/ADMIN
+ * (Owner & Finance tidak lagi melihat tombol input global).
  */
 export function canEdit(role: UserRole): boolean {
-  return role === 'OWNER' || role === 'DEVELOPER' || role === 'ADMIN' || role === 'ACCOUNTANT';
+  return role === 'MANAGER' || role === 'DEVELOPER' || role === 'ADMIN';
 }
 
 export function canResetDemoData(role: UserRole): boolean {

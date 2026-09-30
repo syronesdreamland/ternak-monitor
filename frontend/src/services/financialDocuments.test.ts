@@ -46,6 +46,25 @@ describe('financial workflow', () => {
     expect(() => store.approveFundRequest(request.id, { uid: 'manager', name: 'Manager', role: 'MANAGER' })).toThrow(/Owner/i);
   });
 
+  it('v1.1: manager realizes an approved fund request with invoice and proof, then completes it', () => {
+    const request = store.createFundRequest(fundDraft, { uid: 'manager', name: 'Manager', role: 'MANAGER' });
+    // Realisasi sebelum disetujui Owner harus ditolak.
+    expect(() => store.realizeFundRequest(request.id, { invoiceNo: 'INV-X', amount: 1000 }, { uid: 'manager', name: 'Manager', role: 'MANAGER' })).toThrow(/disetujui/i);
+    store.approveFundRequest(request.id, { uid: 'owner', name: 'Owner', role: 'OWNER' });
+    const realized = store.realizeFundRequest(request.id, { invoiceNo: 'INV-Pakan/09/0007', amount: 2500000, attachmentIds: ['nota-1'] }, { uid: 'manager', name: 'Manager', role: 'MANAGER' });
+    expect(realized.status).toBe('Direalisasikan Manager');
+    expect(realized.realizedInvoiceNo).toBe('INV-Pakan/09/0007');
+    expect(realized.realizedAttachmentIds).toEqual(['nota-1']);
+    const done = store.completeFundRequest(request.id, { uid: 'manager', name: 'Manager', role: 'MANAGER' });
+    expect(done.status).toBe('Selesai');
+  });
+
+  it('v1.1: accountant cannot realize a fund request (view-only keuangan)', () => {
+    const request = store.createFundRequest(fundDraft, { uid: 'manager', name: 'Manager', role: 'MANAGER' });
+    store.approveFundRequest(request.id, { uid: 'owner', name: 'Owner', role: 'OWNER' });
+    expect(() => store.realizeFundRequest(request.id, { invoiceNo: 'INV-Y', amount: 1000 }, { uid: 'acc', name: 'Akuntan', role: 'ACCOUNTANT' })).toThrow(/Manager/i);
+  });
+
   it('supports installment payments and calculates remaining balance', () => {
     const invoice = store.createInvoice(invoiceDraft, { uid: 'acc', name: 'Akuntan', role: 'ACCOUNTANT' });
     store.addPayment(invoice.id, 5000000, 'Transfer Bank', { uid: 'acc', name: 'Akuntan', role: 'ACCOUNTANT' });

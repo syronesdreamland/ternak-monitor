@@ -1,7 +1,7 @@
 import type { UserRole } from '../types';
 
 export type Actor = { uid: string; name: string; role: UserRole };
-export type FundStatus = 'Draft' | 'Diajukan' | 'Diverifikasi Akuntan' | 'Disetujui Owner' | 'Dicairkan' | 'Selesai' | 'Perlu Revisi' | 'Ditolak' | 'Dibatalkan';
+export type FundStatus = 'Draft' | 'Diajukan' | 'Diverifikasi Akuntan' | 'Disetujui Owner' | 'Direalisasikan Manager' | 'Dicairkan' | 'Selesai' | 'Perlu Revisi' | 'Ditolak' | 'Dibatalkan';
 export type PaymentStatus = 'Belum Dibayar' | 'Menunggu Verifikasi' | 'Sebagian' | 'Lunas' | 'Ditolak';
 export type LineItem = { description: string; quantity: number; unit: string; unitPrice: number };
 
@@ -11,6 +11,8 @@ export interface FundRequestDraft {
 export interface FundRequest extends FundRequestDraft {
   id: string; requestNo: string; requesterId: string; requesterName: string; requesterRole: UserRole; total: number;
   status: FundStatus; createdAt: string; verifiedBy?: string; approvedBy?: string; cancelledReason?: string;
+  /** v1.1 realisasi pengeluaran: diisi Manager saat update realisasi. */
+  realizedInvoiceNo?: string; realizedAmount?: number; realizedAt?: string; realizedBy?: string; realizedAttachmentIds?: string[];
 }
 export interface InvoiceDraft {
   kind: 'JUAL' | 'BELI' | 'DANA' | 'OPERASIONAL'; partyName: string; partyContact: string; issueDate: string; dueDate: string;
@@ -111,6 +113,41 @@ export class FinancialDocumentsStore {
     if (status === 'Dicairkan') this.requireRole(actor, ['ACCOUNTANT'], 'Hanya Akuntan yang dapat mencatat pencairan.');
     else this.requireRole(actor, ['OWNER', 'ACCOUNTANT'], 'Role tidak berwenang mengubah status ini.');
     request.status = status; if (status === 'Dibatalkan') request.cancelledReason = reason; this.audit(actor, `Status Pengajuan: ${status}`, request.id, reason); this.save(); return request;
+  }
+
+  /**
+   * v1.1 alur pengeluaran (sesuai dokumen revisi): setelah Owner menyetujui,
+   * Manager merealisasikan pengeluaran dengan detail invoice/bukti transaksi.
+   * Status berjalan Disetujui Owner -> Direalisasikan Manager -> Selesai.
+   */
+  realizeFundRequest(requestId: string, detail: { invoiceNo: string; amount: number; attachmentIds?: string[] }, actor: Actor) {
+    this.requireRole(actor, ['MANAGER', 'OWNER', 'DEVELOPER', 'ADMIN'], 'Hanya Manager yang dapat merealisasikan pengeluaran.');
+    if (!detail.invoiceNo.trim()) throw new Error('Nomor/identitas invoice wajib diisi.');
+    if (!(detail.amount > 0)) throw new Error('Nominal realisasi wajib lebih dari nol.');
+    const request = this.mustRequest(requestId);
+    if (request.status !== 'Disetujui Owner' && request.status !== 'Dicairkan') {
+      throw new Error('Realisasi hanya dapat dilakukan setelah pengajuan disetujui Owner.');
+    }
+    request.status = 'Direalisasikan Manager';
+    request.realizedInvoiceNo = detail.invoiceNo.trim();
+    request.realizedAmount = detail.amount;
+    request.realizedAt = now();
+    request.realizedBy = actor.name;
+    request.realizedAttachmentIds = detail.attachmentIds ?? [];
+    this.audit(actor, 'Realisasi Pengeluaran', request.id, `${request.requestNo} · ${detail.invoiceNo.trim()}`);
+    this.save();
+    return request;
+  }
+
+  /** v1.1: Manager menandai realisasi selesai (laporan keuangan final). */
+  completeFundRequest(requestId: string, actor: Actor) {
+    this.requireRole(actor, ['MANAGER', 'OWNER', 'DEVELOPER', 'ADMIN'], 'Hanya Manager yang dapat menyelesaikan realisasi.');
+    const request = this.mustRequest(requestId);
+    if (request.status !== 'Direalisasikan Manager') throw new Error('Pengajuan belum direalisasikan.');
+    request.status = 'Selesai';
+    this.audit(actor, 'Realisasi Selesai', request.id, request.requestNo);
+    this.save();
+    return request;
   }
   private mustRequest(requestId: string) { const request = this.state.fundRequests.find(item => item.id === requestId); if (!request) throw new Error('Pengajuan tidak ditemukan.'); return request; }
 

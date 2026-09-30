@@ -17,13 +17,12 @@ const roleItems = (role: UserRole) => {
   ];
   if (role === 'ACCOUNTANT') return [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
-    { id: 'transactions', label: 'Transaksi', icon: ShoppingCart },
     { id: 'invoices', label: 'Invoice', icon: ReceiptText },
     { id: 'finance', label: 'Laba Rugi', icon: Wallet },
   ];
   if (role === 'MANAGER') return [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
-    { id: 'livestock', label: 'Ternak', icon: Database },
+    { id: 'expenses', label: 'Pengeluaran', icon: ReceiptText },
     { id: 'invoices', label: 'Dana', icon: WalletCards },
     { id: 'finance', label: 'Laba Rugi', icon: Wallet },
   ];

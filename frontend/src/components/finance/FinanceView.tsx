@@ -158,7 +158,7 @@ export const FinanceView: React.FC = () => {
             <Wallet className="h-5 w-5 text-[#1B5E20]" />
             <span>Laporan Laba Rugi</span>
           </h2>
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-500 sm:text-xs">{canWriteFinance ? 'Catat pemasukan penjualan sapi dan seluruh pengeluaran operasional peternakan.' : 'Ringkasan pemasukan, pengeluaran, dan laba. Pencatatan dilakukan oleh Owner/Akuntan.'}</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-500 sm:text-xs">{canWriteFinance ? 'Catat pemasukan penjualan sapi dan seluruh pengeluaran operasional peternakan.' : 'Ringkasan pemasukan, pengeluaran, dan laba. Pencatatan dilakukan oleh Manager.'}</p>
         </div>
       </header>
 
