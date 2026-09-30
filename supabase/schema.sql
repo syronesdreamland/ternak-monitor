@@ -677,10 +677,11 @@ end $$;
 
 -- ---------------------------------------------------------------------------
 -- 10) RLS policies (idempotent via drop-if-exists)
--- Granular sesuai permissions.ts:
+-- Granular sesuai permissions.ts v1.1 (two pillars):
 --   INSERT  : op = OWNER+MANAGER; finance = OWNER+ACCOUNTANT; system = OWNER
---   UPDATE  : OWNER (op & finance sesuai dokumen: Manager edit X); notifications semua
---   DELETE  : OWNER saja (op), OWNER+ACCOUNTANT (finance)
+--   UPDATE  : op = OWNER+MANAGER (v1.1: Manager eksekusi/edit data op);
+--             finance = OWNER+ACCOUNTANT; notifications semua
+--   DELETE  : op = OWNER+MANAGER (v1.1); finance = OWNER+ACCOUNTANT
 --   SELECT  : op = semua role; finance = OWNER+ACCOUNTANT (+MITRA utk invoices)
 -- ---------------------------------------------------------------------------
 do $$
@@ -714,13 +715,13 @@ begin
     execute format($p$
       create policy "role_update" on public.%I
       for update to authenticated
-      using (public.current_role() = 'OWNER')
-      with check (public.current_role() = 'OWNER');
+      using (public.current_role() = any (array['OWNER','MANAGER']))
+      with check (public.current_role() = any (array['OWNER','MANAGER']));
     $p$, t);
     execute format($p$
       create policy "role_delete" on public.%I
       for delete to authenticated
-      using (public.current_role() = 'OWNER');
+      using (public.current_role() = any (array['OWNER','MANAGER']));
     $p$, t);
   end loop;
 
