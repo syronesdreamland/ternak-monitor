@@ -511,21 +511,25 @@ const INITIAL_SETTINGS: BusinessSettings = {
 
 // Local Storage Helper keys
 export const STORAGE_KEYS = {
-  LOCATIONS: 'ternak_locations',
-  PENS: 'ternak_pens',
-  LIVESTOCK: 'ternak_livestock',
-  WEIGHT: 'ternak_weight',
-  HEALTH: 'ternak_health',
-  BREEDING: 'ternak_breeding',
-  BIRTHS: 'ternak_births',
-  DEATHS: 'ternak_deaths',
-  TRANSFERS: 'ternak_transfers',
-  SALES: 'ternak_sales',
-  FEED: 'ternak_feed',
-  FINANCE: 'ternak_finance',
-  DAILY_REPORTS: 'ternak_daily_reports',
-  NOTIFICATIONS: 'ternak_notifications',
-  AUDIT_LOGS: 'ternak_audit_logs',
+  // v3: version bump agar cache localStorage lama perangkat manapun (v1/v2,
+  // berisi seed/data demo) tidak pernah dimuat lagi — produksi selalu mulai
+  // dari DB Supabase (sumber kebenaran). CURRENT_USER/SETTINGS/USERS sengaja
+  // tidak di-bump agar sesi login & konfigurasi perangkat tetap berlaku.
+  LOCATIONS: 'ternak_locations_v3',
+  PENS: 'ternak_pens_v3',
+  LIVESTOCK: 'ternak_livestock_v3',
+  WEIGHT: 'ternak_weight_v3',
+  HEALTH: 'ternak_health_v3',
+  BREEDING: 'ternak_breeding_v3',
+  BIRTHS: 'ternak_births_v3',
+  DEATHS: 'ternak_deaths_v3',
+  TRANSFERS: 'ternak_transfers_v3',
+  SALES: 'ternak_sales_v3',
+  FEED: 'ternak_feed_v3',
+  FINANCE: 'ternak_finance_v3',
+  DAILY_REPORTS: 'ternak_daily_reports_v3',
+  NOTIFICATIONS: 'ternak_notifications_v3',
+  AUDIT_LOGS: 'ternak_audit_logs_v3',
   SETTINGS: 'ternak_settings',
   CURRENT_USER: 'ternak_current_user',
   USERS: 'ternak_users'
@@ -554,22 +558,9 @@ function loadStorage<T>(key: string, fallback: T): T {
   }
 }
 
-// Untuk array seed: gabungkan seed dengan data tersimpan (dedupe by id).
-// Ini memastikan item seed baru tetap muncul walaupun localStorage lama sudah
-// menyimpan array kosong atau versi lama tanpa item baru.
-function loadArrayStorage<T extends { id: string }>(key: string, seed: T[]): T[] {
-  try {
-    const data = localStorage.getItem(key);
-    if (!data) return seed;
-    const saved = JSON.parse(data) as T[];
-    if (!Array.isArray(saved)) return seed;
-    const savedIds = new Set(saved.map(x => x.id));
-    const extra = seed.filter(x => !savedIds.has(x.id));
-    return extra.length ? [...saved, ...extra] : saved;
-  } catch {
-    return seed;
-  }
-}
+// [DIHAPUS] loadArrayStorage — dulu menyatukan kembali seed demo ke data
+// tersimpan ("item seed baru tetap muncul"), penyebab data dummy bangkit
+// lagi setelah dihapus. Produksi kini memakai loadStorage + seedOrEmpty.
 
 function saveStorage<T>(key: string, value: T): void {
   try {
@@ -579,6 +570,19 @@ function saveStorage<T>(key: string, value: T): void {
   }
   // Sinkronisasi ke Supabase (debounced per-key). No-op bila sync nonaktif.
   import('./dataSync').then(({ dataSync }) => dataSync.onCollectionChanged(key)).catch(() => {});
+}
+
+/** Deteksi environment test (vitest) — seed demo hanya dipakai sebagai fixture test. */
+const IS_TEST_ENV = typeof process !== 'undefined' && process.env?.npm_lifecycle_event === 'test';
+
+/**
+ * Produksi: seluruh seed demo dikosongkan — dashboard selalu mulai kosong dan
+ * mengambil data dari DB Supabase (sumber kebenaran). Mode test vitest
+ * mempertahankan seed sebagai fixture. resetToSeed() (test-only) tetap memakai
+ * array penuh.
+ */
+function seedOrEmpty<T>(items: T[]): T[] {
+  return IS_TEST_ENV ? items : [];
 }
 
 class StoreService {
@@ -594,22 +598,22 @@ class StoreService {
     status: 'Aktif'
   });
 
-  public locations: LocationItem[] = loadStorage(STORAGE_KEYS.LOCATIONS, INITIAL_LOCATIONS);
+  public locations: LocationItem[] = loadStorage(STORAGE_KEYS.LOCATIONS, seedOrEmpty(INITIAL_LOCATIONS));
   public users: ManagedUser[] = loadStorage(STORAGE_KEYS.USERS, INITIAL_USERS);
-  public pens: PenItem[] = loadStorage(STORAGE_KEYS.PENS, INITIAL_PENS);
-  public livestock: LivestockItem[] = loadStorage(STORAGE_KEYS.LIVESTOCK, INITIAL_LIVESTOCK);
-  public weightRecords: WeightRecord[] = loadStorage(STORAGE_KEYS.WEIGHT, INITIAL_WEIGHT_RECORDS);
-  public healthRecords: HealthRecord[] = loadStorage(STORAGE_KEYS.HEALTH, INITIAL_HEALTH_RECORDS);
-  public breedingRecords: BreedingRecord[] = loadStorage(STORAGE_KEYS.BREEDING, INITIAL_BREEDING_RECORDS);
+  public pens: PenItem[] = loadStorage(STORAGE_KEYS.PENS, seedOrEmpty(INITIAL_PENS));
+  public livestock: LivestockItem[] = loadStorage(STORAGE_KEYS.LIVESTOCK, seedOrEmpty(INITIAL_LIVESTOCK));
+  public weightRecords: WeightRecord[] = loadStorage(STORAGE_KEYS.WEIGHT, seedOrEmpty(INITIAL_WEIGHT_RECORDS));
+  public healthRecords: HealthRecord[] = loadStorage(STORAGE_KEYS.HEALTH, seedOrEmpty(INITIAL_HEALTH_RECORDS));
+  public breedingRecords: BreedingRecord[] = loadStorage(STORAGE_KEYS.BREEDING, seedOrEmpty(INITIAL_BREEDING_RECORDS));
   public birthRecords: BirthRecord[] = loadStorage(STORAGE_KEYS.BIRTHS, []);
   public deathRecords: DeathRecord[] = loadStorage(STORAGE_KEYS.DEATHS, []);
   public transferRecords: TransferRecord[] = loadStorage(STORAGE_KEYS.TRANSFERS, []);
-  public salesRecords: SalesRecord[] = loadArrayStorage(STORAGE_KEYS.SALES, INITIAL_SALES);
-  public feedInventory: FeedInventory[] = loadArrayStorage(STORAGE_KEYS.FEED, INITIAL_FEED);
-  public financialTransactions: FinancialTransaction[] = loadArrayStorage(STORAGE_KEYS.FINANCE, INITIAL_FINANCE);
-  public dailyReports: DailyReport[] = loadStorage(STORAGE_KEYS.DAILY_REPORTS, INITIAL_DAILY_REPORTS);
-  public notifications: NotificationItem[] = loadStorage(STORAGE_KEYS.NOTIFICATIONS, INITIAL_NOTIFICATIONS);
-  public auditLogs: AuditLogItem[] = loadStorage(STORAGE_KEYS.AUDIT_LOGS, INITIAL_AUDIT_LOGS);
+  public salesRecords: SalesRecord[] = loadStorage(STORAGE_KEYS.SALES, seedOrEmpty(INITIAL_SALES));
+  public feedInventory: FeedInventory[] = loadStorage(STORAGE_KEYS.FEED, seedOrEmpty(INITIAL_FEED));
+  public financialTransactions: FinancialTransaction[] = loadStorage(STORAGE_KEYS.FINANCE, seedOrEmpty(INITIAL_FINANCE));
+  public dailyReports: DailyReport[] = loadStorage(STORAGE_KEYS.DAILY_REPORTS, seedOrEmpty(INITIAL_DAILY_REPORTS));
+  public notifications: NotificationItem[] = loadStorage(STORAGE_KEYS.NOTIFICATIONS, seedOrEmpty(INITIAL_NOTIFICATIONS));
+  public auditLogs: AuditLogItem[] = loadStorage(STORAGE_KEYS.AUDIT_LOGS, seedOrEmpty(INITIAL_AUDIT_LOGS));
   public settings: BusinessSettings = loadStorage(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS);
 
   public activeLocationId: string = 'ALL'; // 'ALL' or locationId
@@ -1560,7 +1564,11 @@ class StoreService {
     this.resetToSeed();
   }
 
+  /** Test-only: muat ulang seed demo sebagai fixture vitest. Melempar error di produksi. */
   public resetToSeed() {
+    if (!IS_TEST_ENV) {
+      throw new Error('resetToSeed hanya untuk environment test; produksi tidak pernah memuat seed.');
+    }
     this.locations = INITIAL_LOCATIONS;
     this.pens = INITIAL_PENS;
     this.livestock = INITIAL_LIVESTOCK;
