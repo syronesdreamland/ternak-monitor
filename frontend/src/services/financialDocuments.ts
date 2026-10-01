@@ -116,6 +116,46 @@ export class FinancialDocumentsStore {
   }
 
   /**
+   * Edit pengajuan oleh pengajunya sendiri — HANYA saat masih 'Diajukan'
+   * (belum diverifikasi/disetujui/direalisasikan). Request number dipertahankan
+   * agar jejak audit tetap konsisten; hanya konten yang berubah.
+   */
+  editFundRequest(requestId: string, draft: FundRequestDraft, actor: Actor): FundRequest {
+    const request = this.mustRequest(requestId);
+    if (request.requesterId !== actor.uid) throw new Error('Hanya pembuat pengajuan yang dapat mengeditnya.');
+    if (request.status !== 'Diajukan') throw new Error('Pengajuan hanya dapat diedit saat status masih Diajukan.');
+    if (!draft.purpose.trim() || !draft.items.length) throw new Error('Keperluan dan rincian pengajuan wajib diisi.');
+    request.category = draft.category;
+    request.location = draft.location;
+    request.purpose = draft.purpose;
+    request.neededDate = draft.neededDate;
+    request.paymentMethod = draft.paymentMethod;
+    request.notes = draft.notes;
+    request.items = draft.items;
+    request.total = sumItems(draft.items);
+    this.audit(actor, 'Edit Pengajuan', request.id, `${request.requestNo} · total baru ${request.total}`);
+    this.save();
+    return request;
+  }
+
+  /**
+   * Pembatalan oleh pengajunya sendiri saat masih 'Diajukan' (belum diproses
+   * siapa pun). Setelah diverifikasi/disetujui, pembatalan kembali ke
+   * Owner/Accountant lewat updateFundStatus.
+   */
+  cancelFundRequest(requestId: string, reason: string, actor: Actor): FundRequest {
+    const request = this.mustRequest(requestId);
+    if (request.requesterId !== actor.uid) throw new Error('Hanya pembuat pengajuan yang dapat membatalkannya.');
+    if (request.status !== 'Diajukan') throw new Error('Pengajuan hanya dapat dibatalkan saat status masih Diajukan.');
+    if (!reason.trim()) throw new Error('Alasan pembatalan wajib diisi.');
+    request.status = 'Dibatalkan';
+    request.cancelledReason = reason;
+    this.audit(actor, 'Batalkan Pengajuan', request.id, `${request.requestNo} · ${reason}`);
+    this.save();
+    return request;
+  }
+
+  /**
    * v1.1 alur pengeluaran (sesuai dokumen revisi): setelah Owner menyetujui,
    * Manager merealisasikan pengeluaran dengan detail invoice/bukti transaksi.
    * Status berjalan Disetujui Owner -> Direalisasikan Manager -> Selesai.

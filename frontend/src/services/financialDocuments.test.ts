@@ -65,6 +65,35 @@ describe('financial workflow', () => {
     expect(() => store.realizeFundRequest(request.id, { invoiceNo: 'INV-Y', amount: 1000 }, { uid: 'acc', name: 'Akuntan', role: 'ACCOUNTANT' })).toThrow(/Manager/i);
   });
 
+  it('requester can edit own pending request; non-requester and processed requests cannot', () => {
+    const request = store.createFundRequest(fundDraft, { uid: 'manager', name: 'Manager', role: 'MANAGER' });
+    const edited = store.editFundRequest(
+      request.id,
+      { ...fundDraft, purpose: 'Konsentrat revisi', items: [{ description: 'Konsentrat', quantity: 12, unit: 'sak', unitPrice: 250000 }] },
+      { uid: 'manager', name: 'Manager', role: 'MANAGER' },
+    );
+    expect(edited.purpose).toBe('Konsentrat revisi');
+    expect(edited.total).toBe(3_000_000);
+    expect(edited.requestNo).toBe(request.requestNo); // nomor dipertahankan
+    // Bukan pembuat -> ditolak.
+    expect(() => store.editFundRequest(request.id, fundDraft, { uid: 'other', name: 'Orang Lain', role: 'MANAGER' })).toThrow(/pembuat/i);
+    // Setelah diverifikasi Akuntan -> tidak bisa diedit lagi.
+    store.verifyFundRequest(request.id, { uid: 'acc', name: 'Akuntan', role: 'ACCOUNTANT' });
+    expect(() => store.editFundRequest(request.id, fundDraft, { uid: 'manager', name: 'Manager', role: 'MANAGER' })).toThrow(/Diajukan/i);
+    expect(() => store.cancelFundRequest(request.id, 'alasan', { uid: 'manager', name: 'Manager', role: 'MANAGER' })).toThrow(/Diajukan/i);
+  });
+
+  it('requester cancels own pending request with mandatory reason', () => {
+    const request = store.createFundRequest(fundDraft, { uid: 'manager', name: 'Manager', role: 'MANAGER' });
+    expect(() => store.cancelFundRequest(request.id, '   ', { uid: 'manager', name: 'Manager', role: 'MANAGER' })).toThrow(/Alasan/i);
+    expect(() => store.cancelFundRequest(request.id, 'batal', { uid: 'owner', name: 'Owner', role: 'OWNER' })).toThrow(/pembuat/i);
+    const cancelled = store.cancelFundRequest(request.id, 'Salah hitung kebutuhan', { uid: 'manager', name: 'Manager', role: 'MANAGER' });
+    expect(cancelled.status).toBe('Dibatalkan');
+    expect(cancelled.cancelledReason).toBe('Salah hitung kebutuhan');
+    // Setelah dibatalkan, tidak bisa diedit ulang.
+    expect(() => store.editFundRequest(request.id, fundDraft, { uid: 'manager', name: 'Manager', role: 'MANAGER' })).toThrow(/Diajukan/i);
+  });
+
   it('supports installment payments and calculates remaining balance', () => {
     const invoice = store.createInvoice(invoiceDraft, { uid: 'acc', name: 'Akuntan', role: 'ACCOUNTANT' });
     store.addPayment(invoice.id, 5000000, 'Transfer Bank', { uid: 'acc', name: 'Akuntan', role: 'ACCOUNTANT' });
