@@ -211,7 +211,7 @@ const DEATHS_DEF: TableDef<DeathRecord> = {
   toRow: (x) => camelToSnake({ ...x }),
   fromRow: (r) => snakeToCamel<DeathRecord>(r, {
     id: 'id', livestockId: 'livestockId', tagId: 'tagId', deathDate: 'deathDate',
-    deathTime: 'deathTime', locationId: 'locationId', suspectedCause: 'suspectedCause',
+    deathTime: 'deathTime', locationId: 'locationId', locationName: 'locationName', suspectedCause: 'suspectedCause',
     symptomsBefore: 'symptomsBefore', handlingNote: 'handlingNote', chronology: 'chronology',
     lastCondition: 'lastCondition', officerName: 'officerName', vetName: 'vetName',
     photoUrl: 'photoUrl', docUrl: 'docUrl', confirmedBy: 'confirmedBy',
@@ -226,7 +226,8 @@ const TRANSFERS_DEF: TableDef<TransferRecord> = {
   toRow: (x) => camelToSnake({ ...x }),
   fromRow: (r) => snakeToCamel<TransferRecord>(r, {
     id: 'id', livestockId: 'livestockId', tagId: 'tagId', originLocationId: 'originLocationId',
-    destLocationId: 'destLocationId', transferDate: 'transferDate', reason: 'reason',
+    originLocationName: 'originLocationName', destLocationId: 'destLocationId',
+    destLocationName: 'destLocationName', transferDate: 'transferDate', reason: 'reason',
     officerName: 'officerName', transport: 'transport', notes: 'notes', createdAt: 'createdAt',
   }),
 };
@@ -243,6 +244,7 @@ const SALES_DEF: TableDef<SalesRecord> = {
     buyerPhone: 'buyerPhone', livestockIds: 'livestockIds', weightTotalKg: 'weightTotalKg',
     priceTotal: 'priceTotal', acquisitionCostTotal: 'acquisitionCostTotal',
     paymentMethod: 'paymentMethod', paymentStatus: 'paymentStatus', locationId: 'locationId',
+    locationName: 'locationName',
     proofUrl: 'proofUrl', docUrl: 'docUrl', salesRep: 'salesRep',
     transactionStatus: 'transactionStatus', linkedFinanceTransactionIds: 'linkedFinanceTransactionIds',
     preSaleLivestockSnapshots: 'preSaleLivestockSnapshots', voidedAt: 'voidedAt',
@@ -256,7 +258,7 @@ const FEED_DEF: TableDef<FeedInventory> = {
   columns: ['id', 'location_id', 'feed_type', 'stock_qty', 'stock_in', 'stock_out', 'unit', 'min_stock', 'unit_price', 'supplier', 'archived_at', 'archived_by', 'updated_at'],
   toRow: (x) => camelToSnake({ ...x }),
   fromRow: (r) => snakeToCamel<FeedInventory>(r, {
-    id: 'id', locationId: 'locationId', feedType: 'feedType', stockQty: 'stockQty',
+    id: 'id', locationId: 'locationId', locationName: 'locationName', feedType: 'feedType', stockQty: 'stockQty',
     stockIn: 'stockIn', stockOut: 'stockOut', unit: 'unit', minStock: 'minStock',
     unitPrice: 'unitPrice', supplier: 'supplier', archivedAt: 'archivedAt',
     archivedBy: 'archivedBy', updatedAt: 'updatedAt',
@@ -280,10 +282,10 @@ const FINANCE_DEF: TableDef<FinancialTransaction> = {
 // ---------------------------------------------------------------------------
 const REPORTS_DEF: TableDef<DailyReport> = {
   table: 'daily_reports',
-  columns: ['id', 'date', 'location_id', 'pop_initial', 'pop_purchase', 'pop_birth', 'pop_transfer_in', 'pop_sales', 'pop_death', 'pop_transfer_out', 'pop_final', 'healthy_count', 'sick_count', 'isolation_count', 'in_treatment_count', 'activities_text', 'expenses_list', 'photos', 'officer_notes', 'report_status', 'created_by', 'submitted_at', 'reviewed_by', 'reviewed_at', 'archived_at', 'archived_by', 'created_at'],
+  columns: ['id', 'date', 'location_id', 'location_name', 'pop_initial', 'pop_purchase', 'pop_birth', 'pop_transfer_in', 'pop_sales', 'pop_death', 'pop_transfer_out', 'pop_final', 'healthy_count', 'sick_count', 'isolation_count', 'in_treatment_count', 'activities_text', 'expenses_list', 'photos', 'officer_notes', 'report_status', 'created_by', 'submitted_at', 'reviewed_by', 'reviewed_at', 'archived_at', 'archived_by', 'created_at'],
   toRow: (x) => camelToSnake({ ...x }),
   fromRow: (r) => snakeToCamel<DailyReport>(r, {
-    id: 'id', date: 'date', locationId: 'locationId', popInitial: 'popInitial',
+    id: 'id', date: 'date', locationId: 'locationId', locationName: 'locationName', popInitial: 'popInitial',
     popPurchase: 'popPurchase', popBirth: 'popBirth', popTransferIn: 'popTransferIn',
     popSales: 'popSales', popDeath: 'popDeath', popTransferOut: 'popTransferOut',
     popFinal: 'popFinal', healthyCount: 'healthyCount', sickCount: 'sickCount',
