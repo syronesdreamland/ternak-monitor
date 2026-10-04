@@ -4,6 +4,7 @@ import { agroStore, makeId } from '../../services/agroStore';
 import { storeService } from '../../services/storeService';
 import { PurchaseOrder } from '../../types';
 import { formatRupiah, formatDate } from '../../utils/formatters';
+import { canCreate, canEditModule, canDelete } from '../../services/permissions';
 import {
   AgroHeader, AgroStat, AgroTable, StatusBadge, AgroButton,
   AgroSearch, AgroModal, AgroField, AgroSelect, AgroEmpty, AddButton,
@@ -23,6 +24,8 @@ export const PurchaseOrderView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('Semua');
   const [editing, setEditing] = useState<PurchaseOrder | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const canWrite = canCreate(storeService.currentUser.role, 'purchase-order') && canEditModule(storeService.currentUser.role, 'purchase-order');
+  const canRemove = canDelete(storeService.currentUser.role, 'purchase-order');
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const state = useMemo(() => agroStore.snapshot(), [version]);
   useEffect(() => agroStore.subscribe(() => setVersion(v => v + 1)), []);
@@ -63,12 +66,14 @@ export const PurchaseOrderView: React.FC = () => {
   };
 
   const remove = (item: PurchaseOrder) => {
+    if (!canRemove) { window.alert('Hanya Manager/Developer yang dapat menghapus PO.'); return; }
     if (!window.confirm(`Hapus PO "${item.poNo}"?`)) return;
     agroStore.remove('purchaseOrders', item.id);
     storeService.addAuditLog('Purchase Order', 'Hapus PO', item.id, item.poNo);
   };
 
   const setStatus = (item: PurchaseOrder, status: PurchaseOrder['status']) => {
+    if (!canWrite) { window.alert('Hanya Manager/Developer yang dapat mengubah status PO.'); return; }
     agroStore.update('purchaseOrders', item.id, { status });
     storeService.addAuditLog('Purchase Order', `Status PO: ${status}`, item.id, item.poNo, item.status, status);
   };
@@ -105,7 +110,7 @@ export const PurchaseOrderView: React.FC = () => {
         kicker="Inventory & Purchasing"
         title="Purchase Order"
         subtitle="Kelola pesanan pembelian ke supplier dengan total otomatis dan alur status."
-        actions={<AddButton onClick={openAdd} label="Buat PO" />}
+        actions={canWrite ? <AddButton onClick={openAdd} label="Buat PO" /> : undefined}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

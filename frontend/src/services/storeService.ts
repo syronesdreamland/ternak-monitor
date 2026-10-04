@@ -1460,6 +1460,10 @@ class StoreService {
   }
 
   public voidSalesTransaction(id: string, reason: string): boolean {
+    const actorRole = this.currentUser.role;
+    if (actorRole !== 'MANAGER' && actorRole !== 'DEVELOPER' && actorRole !== 'ADMIN') {
+      throw new Error('Hanya Manager/Developer yang dapat membatalkan penjualan.');
+    }
     const sale = this.salesRecords.find(item => item.id === id);
     if (!sale || sale.transactionStatus === 'Batal' || !reason.trim() || !sale.preSaleLivestockSnapshots) return false;
     const now = new Date().toISOString();

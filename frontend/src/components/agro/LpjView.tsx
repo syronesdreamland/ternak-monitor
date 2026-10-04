@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { agroStore, makeId } from '../../services/agroStore';
+import { storeService } from '../../services/storeService';
 import type { LpjItem, LpjReport } from '../../types';
 import { formatRupiah } from '../../utils/formatters';
+import { canCreate, canEditModule, canDelete } from '../../services/permissions';
 import { AgroHeader, AgroCard, AgroStat, AgroTable, StatusBadge, AgroButton, AgroSearch, AgroModal, AgroField, AgroSelect, AgroEmpty, AddButton } from './AgroUI';
 
 const emptyItem = (): LpjItem => ({ id: makeId('lpj-i'), description: '', category: '', amount: 0 });
@@ -13,6 +15,8 @@ export const LpjView: React.FC = () => {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const canWrite = canCreate(storeService.currentUser.role, 'lpj') && canEditModule(storeService.currentUser.role, 'lpj');
+  const canRemove = canDelete(storeService.currentUser.role, 'lpj');
   const [title, setTitle] = useState('');
   const [division, setDivision] = useState('');
   const [periodStart, setPeriodStart] = useState(new Date().toISOString().slice(0, 10));
@@ -77,6 +81,7 @@ export const LpjView: React.FC = () => {
   };
 
   const advanceStatus = (r: LpjReport) => {
+    if (!canWrite) { window.alert('Hanya Manager/Developer yang dapat mengubah LPJ.'); return; }
     const next = r.status === 'Draft' ? 'Diajukan' : r.status === 'Diajukan' ? 'Diverifikasi' : r.status === 'Diverifikasi' ? 'Disetujui' : r.status;
     agroStore.update('lpjReports', r.id, { status: next });
   };
@@ -94,7 +99,7 @@ export const LpjView: React.FC = () => {
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="w-full sm:w-72"><AgroSearch value={search} onChange={setSearch} placeholder="Cari referensi, judul, divisi..." /></div>
-        <div className="ml-auto"><AddButton onClick={openCreate} label="Buat LPJ" /></div>
+        {canWrite && <div className="ml-auto"><AddButton onClick={openCreate} label="Buat LPJ" /></div>}
       </div>
 
       {filtered.length === 0 ? (
@@ -111,9 +116,9 @@ export const LpjView: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusBadge value={r.status} tone={toneOf(r.status)} />
-                  {r.status !== 'Disetujui' && <AgroButton variant="outline" onClick={() => advanceStatus(r)}>Lanjutkan</AgroButton>}
-                  <AgroButton variant="ghost" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></AgroButton>
-                  <AgroButton variant="ghost" onClick={() => { if (confirm('Hapus LPJ ini?')) agroStore.remove('lpjReports', r.id); }}><Trash2 className="h-4 w-4" /></AgroButton>
+                  {canWrite && r.status !== 'Disetujui' && <AgroButton variant="outline" onClick={() => advanceStatus(r)}>Lanjutkan</AgroButton>}
+                  {canWrite && <AgroButton variant="ghost" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></AgroButton>}
+                  {canRemove && <AgroButton variant="ghost" onClick={() => { if (confirm('Hapus LPJ ini?')) agroStore.remove('lpjReports', r.id); }}><Trash2 className="h-4 w-4" /></AgroButton>}
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-3 gap-3">

@@ -123,6 +123,10 @@ export const FinanceView: React.FC = () => {
 
   const handleSaveTransaction = (event: React.FormEvent) => {
     event.preventDefault();
+    if (!canWriteFinance) {
+      window.alert('Hanya Manager/Developer yang dapat mencatat atau mengubah transaksi keuangan.');
+      return;
+    }
     const location = locations.find(item => item.id === locationId) ?? locations[0];
     if (!location) return;
 

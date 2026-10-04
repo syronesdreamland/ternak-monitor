@@ -55,7 +55,7 @@ export const LivestockDatabaseView: React.FC<LivestockDatabaseViewProps> = ({
       const matchTag = item.tagId.toLowerCase().includes(q);
       const matchQr = item.qrCode.toLowerCase().includes(q);
       const matchBreed = item.breed.toLowerCase().includes(q);
-      const matchLoc = item.locationName.toLowerCase().includes(q);
+      const matchLoc = (item.locationName ?? '').toLowerCase().includes(q);
       if (!matchTag && !matchQr && !matchBreed && !matchLoc) return false;
     }
 

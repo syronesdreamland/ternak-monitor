@@ -4,6 +4,7 @@ import { storeService } from '../../services/storeService';
 import { SalesRecord } from '../../types';
 import { formatRupiah, formatDate } from '../../utils/formatters';
 import { prepareImageForStorage } from '../../utils/image';
+import { canCreate, canDelete } from '../../services/permissions';
 
 interface PurchasesSalesViewProps {
   onOpenAddLivestock: () => void;
@@ -15,6 +16,8 @@ export const PurchasesSalesView: React.FC<PurchasesSalesViewProps> = ({ onOpenAd
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [processingPhotoId, setProcessingPhotoId] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState('');
+  const canCreateSales = canCreate(storeService.currentUser.role, 'transactions');
+  const canDeleteSales = canDelete(storeService.currentUser.role, 'transactions');
 
   // Form
   const [invoiceNo, setInvoiceNo] = useState(`TRX-SALES-${Date.now().toString().slice(-6)}`);
@@ -132,7 +135,8 @@ export const PurchasesSalesView: React.FC<PurchasesSalesViewProps> = ({ onOpenAd
           </button>
           <button
             onClick={() => handleOpenModal()}
-            disabled={livestock.length === 0}
+            disabled={livestock.length === 0 || !canCreateSales}
+            title={canCreateSales ? undefined : 'Hanya Manager/Developer yang dapat membuat transaksi penjualan.'}
             className="flex items-center gap-1.5 px-4 py-2 bg-[#123D18] hover:bg-[#1B5E20] disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -209,6 +213,7 @@ export const PurchasesSalesView: React.FC<PurchasesSalesViewProps> = ({ onOpenAd
                     <span className="text-[10px] text-slate-400 block">Harga jual</span>
                     <span className="text-base font-bold font-mono text-[#1B5E20]">{formatRupiah(salePrice)}</span>
                   </div>
+                  {canCreateSales && (
                   <button
                     type="button"
                     onClick={() => handleOpenModal(item.id)}
@@ -216,6 +221,7 @@ export const PurchasesSalesView: React.FC<PurchasesSalesViewProps> = ({ onOpenAd
                   >
                     Pilih & Jual
                   </button>
+                  )}
                 </div>
               </div>
             );
@@ -279,10 +285,12 @@ export const PurchasesSalesView: React.FC<PurchasesSalesViewProps> = ({ onOpenAd
                   <td className="p-3.5 text-center">
                     {s.transactionStatus === 'Batal' ? (
                       <span className="text-rose-700 font-bold">Dibatalkan</span>
-                    ) : (
+                    ) : canDeleteSales ? (
                       <button type="button" onClick={() => handleVoidSale(s)} aria-label={`Batalkan penjualan ${s.invoiceNo}`} className="inline-flex items-center gap-1 px-2 py-1 text-rose-700 hover:bg-rose-50 rounded font-bold">
                         <Ban className="w-3.5 h-3.5" /> Batalkan
                       </button>
+                    ) : (
+                      <span className="text-[10px] text-slate-400">—</span>
                     )}
                   </td>
                 </tr>

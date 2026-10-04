@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { agroStore, makeId } from '../../services/agroStore';
+import { storeService } from '../../services/storeService';
 import type { CashTransaction } from '../../types';
 import { formatRupiah } from '../../utils/formatters';
+import { canCreate, canEditModule, canDelete } from '../../services/permissions';
 import { AgroHeader, AgroCard, AgroStat, AgroTable, StatusBadge, AgroButton, AgroSearch, AgroModal, AgroField, AgroSelect, AgroEmpty, AddButton } from './AgroUI';
 
 const emptyDraft = (): Omit<CashTransaction, 'id' | 'createdAt'> => ({
@@ -25,6 +27,8 @@ export const CashFlowView: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState(emptyDraft());
+  const canWrite = canCreate(storeService.currentUser.role, 'cash-flow') && canEditModule(storeService.currentUser.role, 'cash-flow');
+  const canRemove = canDelete(storeService.currentUser.role, 'cash-flow');
   const state = useMemo(() => agroStore.snapshot(), [version]);
   useEffect(() => agroStore.subscribe(() => setVersion(v => v + 1)), []);
 
@@ -67,7 +71,10 @@ export const CashFlowView: React.FC = () => {
     setShowForm(false);
   };
 
-  const remove = (id: string) => { if (confirm('Hapus transaksi ini?')) agroStore.remove('cashTransactions', id); };
+  const remove = (id: string) => {
+    if (!canRemove) { window.alert('Hanya Owner/Finance yang dapat menghapus transaksi kas.'); return; }
+    if (confirm('Hapus transaksi ini?')) agroStore.remove('cashTransactions', id);
+  };
 
   return (
     <div className="space-y-5 pb-16">
@@ -86,7 +93,7 @@ export const CashFlowView: React.FC = () => {
       <div className="flex flex-wrap items-center gap-2">
         <div className="w-full sm:w-72"><AgroSearch value={search} onChange={setSearch} placeholder="Cari referensi, deskripsi, kategori..." /></div>
         <AgroSelect label="" value={typeFilter} onChange={v => setTypeFilter(v as typeof typeFilter)} options={['Semua', 'Masuk', 'Keluar']} />
-        <div className="ml-auto"><AddButton onClick={openCreate} label="Tambah Transaksi" /></div>
+        {canWrite && <div className="ml-auto"><AddButton onClick={openCreate} label="Tambah Transaksi" /></div>}
       </div>
 
       {filtered.length === 0 ? (
@@ -105,8 +112,8 @@ export const CashFlowView: React.FC = () => {
               <td className={`px-4 py-3 font-bold ${t.type === 'Masuk' ? 'text-[#1B5E20]' : 'text-rose-700'}`}>{formatRupiah(t.amount)}</td>
               <td className="px-4 py-3">
                 <div className="flex gap-1">
-                  <AgroButton variant="ghost" onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /></AgroButton>
-                  <AgroButton variant="ghost" onClick={() => remove(t.id)}><Trash2 className="h-4 w-4" /></AgroButton>
+                  {canWrite && <AgroButton variant="ghost" onClick={() => openEdit(t)}><Pencil className="h-4 w-4" /></AgroButton>}
+                  {canRemove && <AgroButton variant="ghost" onClick={() => remove(t.id)}><Trash2 className="h-4 w-4" /></AgroButton>}
                 </div>
               </td>
             </tr>

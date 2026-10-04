@@ -107,7 +107,8 @@ const LIVESTOCK_DEF: TableDef<LivestockItem> = {
     'ownership_status', 'source', 'entry_date', 'acquisition_price', 'selling_price',
     'price_history', 'initial_weight_kg', 'current_weight_kg', 'health_status',
     'breeding_status', 'mother_id', 'mother_tag', 'father_id', 'father_tag',
-    'condition_category', 'status', 'notes', 'location_history', 'created_at',
+    'condition_category', 'status', 'notes', 'location_name', 'location_history',
+    'created_at',
     'updated_at', 'deleted_at', 'deleted_by',
   ],
   toRow: (x) => camelToSnake({
@@ -121,6 +122,7 @@ const LIVESTOCK_DEF: TableDef<LivestockItem> = {
     breedingStatus: x.breedingStatus, motherId: x.motherId ?? null, motherTag: x.motherTag ?? null,
     fatherId: x.fatherId ?? null, fatherTag: x.fatherTag ?? null,
     conditionCategory: x.conditionCategory, status: x.status, notes: x.notes ?? null,
+    locationName: x.locationName ?? null,
     locationHistory: x.locationHistory ?? [], createdAt: x.createdAt, updatedAt: x.updatedAt,
     deletedAt: x.deletedAt ?? null, deletedBy: x.deletedBy ?? null,
   }),
@@ -130,6 +132,7 @@ const LIVESTOCK_DEF: TableDef<LivestockItem> = {
     breed: String(r.breed ?? ''), gender: r.gender as LivestockItem['gender'],
     dob: (r.dob as string) ?? '', estimatedAgeMonths: Number(r.estimated_age_months ?? 0),
     colorTraits: String(r.color_traits ?? ''), locationId: String(r.location_id ?? ''),
+    locationName: (r.location_name as string) ?? undefined,
     penId: (r.pen_id as string) ?? undefined,
     ownershipStatus: r.ownership_status as LivestockItem['ownershipStatus'],
     source: r.source as LivestockItem['source'],
@@ -207,7 +210,7 @@ const BIRTHS_DEF: TableDef<BirthRecord> = {
 
 const DEATHS_DEF: TableDef<DeathRecord> = {
   table: 'death_records',
-  columns: ['id', 'livestock_id', 'tag_id', 'death_date', 'death_time', 'location_id', 'suspected_cause', 'symptoms_before', 'handling_note', 'chronology', 'last_condition', 'officer_name', 'vet_name', 'photo_url', 'doc_url', 'confirmed_by', 'previous_livestock_state', 'voided_at', 'voided_by', 'void_reason', 'created_at'],
+  columns: ['id', 'livestock_id', 'tag_id', 'death_date', 'death_time', 'location_id', 'location_name', 'suspected_cause', 'symptoms_before', 'handling_note', 'chronology', 'last_condition', 'officer_name', 'vet_name', 'photo_url', 'doc_url', 'confirmed_by', 'previous_livestock_state', 'voided_at', 'voided_by', 'void_reason', 'created_at'],
   toRow: (x) => camelToSnake({ ...x }),
   fromRow: (r) => snakeToCamel<DeathRecord>(r, {
     id: 'id', livestockId: 'livestockId', tagId: 'tagId', deathDate: 'deathDate',
@@ -222,7 +225,7 @@ const DEATHS_DEF: TableDef<DeathRecord> = {
 
 const TRANSFERS_DEF: TableDef<TransferRecord> = {
   table: 'transfer_records',
-  columns: ['id', 'livestock_id', 'tag_id', 'origin_location_id', 'dest_location_id', 'transfer_date', 'reason', 'officer_name', 'transport', 'notes', 'created_at'],
+  columns: ['id', 'livestock_id', 'tag_id', 'origin_location_id', 'dest_location_id', 'origin_location_name', 'dest_location_name', 'transfer_date', 'reason', 'officer_name', 'transport', 'notes', 'created_at'],
   toRow: (x) => camelToSnake({ ...x }),
   fromRow: (r) => snakeToCamel<TransferRecord>(r, {
     id: 'id', livestockId: 'livestockId', tagId: 'tagId', originLocationId: 'originLocationId',
@@ -237,7 +240,7 @@ const TRANSFERS_DEF: TableDef<TransferRecord> = {
 // ---------------------------------------------------------------------------
 const SALES_DEF: TableDef<SalesRecord> = {
   table: 'sales_records',
-  columns: ['id', 'invoice_no', 'date', 'buyer_name', 'buyer_phone', 'livestock_ids', 'weight_total_kg', 'price_total', 'acquisition_cost_total', 'payment_method', 'payment_status', 'location_id', 'proof_url', 'doc_url', 'sales_rep', 'transaction_status', 'linked_finance_transaction_ids', 'pre_sale_livestock_snapshots', 'voided_at', 'voided_by', 'void_reason', 'notes', 'created_by', 'created_at'],
+  columns: ['id', 'invoice_no', 'date', 'buyer_name', 'buyer_phone', 'livestock_ids', 'weight_total_kg', 'price_total', 'acquisition_cost_total', 'payment_method', 'payment_status', 'location_id', 'location_name', 'proof_url', 'doc_url', 'sales_rep', 'transaction_status', 'linked_finance_transaction_ids', 'pre_sale_livestock_snapshots', 'voided_at', 'voided_by', 'void_reason', 'notes', 'created_by', 'created_at'],
   toRow: (x) => camelToSnake({ ...x }),
   fromRow: (r) => snakeToCamel<SalesRecord>(r, {
     id: 'id', invoiceNo: 'invoiceNo', date: 'date', buyerName: 'buyerName',
@@ -255,7 +258,7 @@ const SALES_DEF: TableDef<SalesRecord> = {
 
 const FEED_DEF: TableDef<FeedInventory> = {
   table: 'feed_inventory',
-  columns: ['id', 'location_id', 'feed_type', 'stock_qty', 'stock_in', 'stock_out', 'unit', 'min_stock', 'unit_price', 'supplier', 'archived_at', 'archived_by', 'updated_at'],
+  columns: ['id', 'location_id', 'location_name', 'feed_type', 'stock_qty', 'stock_in', 'stock_out', 'unit', 'min_stock', 'unit_price', 'supplier', 'archived_at', 'archived_by', 'updated_at'],
   toRow: (x) => camelToSnake({ ...x }),
   fromRow: (r) => snakeToCamel<FeedInventory>(r, {
     id: 'id', locationId: 'locationId', locationName: 'locationName', feedType: 'feedType', stockQty: 'stockQty',
@@ -267,11 +270,11 @@ const FEED_DEF: TableDef<FeedInventory> = {
 
 const FINANCE_DEF: TableDef<FinancialTransaction> = {
   table: 'financial_transactions',
-  columns: ['id', 'invoice_no', 'date', 'type', 'category', 'description', 'location_id', 'amount', 'payment_method', 'payee_payer', 'proof_url', 'created_by', 'notes', 'created_at'],
+  columns: ['id', 'invoice_no', 'date', 'type', 'category', 'description', 'location_id', 'location_name', 'amount', 'payment_method', 'payee_payer', 'proof_url', 'created_by', 'notes', 'created_at'],
   toRow: (x) => camelToSnake({ ...x }),
   fromRow: (r) => snakeToCamel<FinancialTransaction>(r, {
     id: 'id', invoiceNo: 'invoiceNo', date: 'date', type: 'type', category: 'category',
-    description: 'description', locationId: 'locationId', amount: 'amount',
+    description: 'description', locationId: 'locationId', locationName: 'locationName', amount: 'amount',
     paymentMethod: 'paymentMethod', payeePayer: 'payeePayer', proofUrl: 'proofUrl',
     createdBy: 'createdBy', notes: 'notes', createdAt: 'createdAt',
   }),
