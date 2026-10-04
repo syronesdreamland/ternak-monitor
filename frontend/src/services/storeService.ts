@@ -1460,9 +1460,11 @@ class StoreService {
   }
 
   public voidSalesTransaction(id: string, reason: string): boolean {
+    // Void membatalkan penjualan DAN menghapus transaksi kas terkait —
+    // RLS financial_transactions hanya mengizinkan OWNER menghapus.
     const actorRole = this.currentUser.role;
-    if (actorRole !== 'MANAGER' && actorRole !== 'DEVELOPER' && actorRole !== 'ADMIN') {
-      throw new Error('Hanya Manager/Developer yang dapat membatalkan penjualan.');
+    if (actorRole !== 'OWNER' && actorRole !== 'DEVELOPER' && actorRole !== 'ADMIN') {
+      throw new Error('Hanya Owner/Developer yang dapat membatalkan penjualan (koreksi kas terkait).');
     }
     const sale = this.salesRecords.find(item => item.id === id);
     if (!sale || sale.transactionStatus === 'Batal' || !reason.trim() || !sale.preSaleLivestockSnapshots) return false;

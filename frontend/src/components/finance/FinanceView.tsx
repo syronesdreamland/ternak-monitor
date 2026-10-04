@@ -4,7 +4,7 @@ import { storeService } from '../../services/storeService';
 import { FinancialCategoryType, FinancialTransaction } from '../../types';
 import { formatDate, formatRupiah } from '../../utils/formatters';
 import { FinancePeriodGranularity, summarizeFinancePeriod } from '../../services/financeSummary';
-import { canCreate, canEditModule } from '../../services/permissions';
+import { canCreate, canCorrectFinance, canEditModule } from '../../services/permissions';
 
 const categoryOptions: Array<{ value: FinancialCategoryType; label: string }> = [
   { value: 'Penjualan Ternak', label: 'Penjualan Sapi' },
@@ -75,6 +75,7 @@ export const FinanceView: React.FC = () => {
   const { income: totalIncome, expenses: totalExpense, grossProfit, netProfit } = summary;
   const isOwner = currentUser.role === 'OWNER';
   const canWriteFinance = canCreate(currentUser.role, 'finance') && canEditModule(currentUser.role, 'finance');
+  const canCorrect = canCorrectFinance(currentUser.role);
   const transactionType: 'income' | 'expense' = category === 'Penjualan Ternak' ? 'income' : 'expense';
 
   const handleOpenModal = (initialCategory: FinancialCategoryType = 'Pakan') => {
@@ -123,8 +124,10 @@ export const FinanceView: React.FC = () => {
 
   const handleSaveTransaction = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!canWriteFinance) {
-      window.alert('Hanya Manager/Developer yang dapat mencatat atau mengubah transaksi keuangan.');
+    if (editingTransactionId ? !canCorrect : !canWriteFinance) {
+      window.alert(editingTransactionId
+        ? 'Hanya Owner/Developer yang dapat mengoreksi transaksi keuangan.'
+        : 'Hanya Manager/Developer yang dapat mencatat transaksi keuangan.');
       return;
     }
     const location = locations.find(item => item.id === locationId) ?? locations[0];
@@ -318,7 +321,7 @@ export const FinanceView: React.FC = () => {
                 </div>
 
                 <div className="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-2.5">
-                  {canWriteFinance && (
+                  {canCorrect && (
                   <button type="button" onClick={() => handleEditTransaction(transaction)} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-blue-50 px-3 text-[10px] font-bold text-blue-700" aria-label={`Edit transaksi ${transaction.invoiceNo}`}>
                     <Pencil className="h-3.5 w-3.5" /> Edit
                   </button>
@@ -367,7 +370,7 @@ export const FinanceView: React.FC = () => {
                   <td className="whitespace-nowrap p-3.5 text-slate-500">{transaction.paymentMethod}</td>
                   <td className="p-3.5">
                     <div className="flex items-center justify-end gap-1">
-                      {canWriteFinance && (
+                      {canCorrect && (
                       <button type="button" onClick={() => handleEditTransaction(transaction)} title="Edit transaksi" aria-label={`Edit transaksi ${transaction.invoiceNo}`} className="rounded-lg p-1.5 text-blue-700 transition hover:bg-blue-50">
                         <Pencil className="h-4 w-4" />
                       </button>

@@ -66,6 +66,18 @@ create policy "role_update" on public.lpj_reports
   using (public.current_role() = any (array['OWNER','ACCOUNTANT','MANAGER']))
   with check (public.current_role() = any (array['OWNER','ACCOUNTANT','MANAGER']));
 
+-- DELETE PO/LPJ oleh Manager (hapus draft PO / LPJ salah input; UI sudah
+-- menyediakan tombolnya untuk Manager sesuai matrix v1.1).
+drop policy if exists "role_delete" on public.purchase_orders;
+create policy "role_delete" on public.purchase_orders
+  for delete to authenticated
+  using (public.current_role() = any (array['OWNER','ACCOUNTANT','MANAGER']));
+
+drop policy if exists "role_delete" on public.lpj_reports;
+create policy "role_delete" on public.lpj_reports
+  for delete to authenticated
+  using (public.current_role() = any (array['OWNER','ACCOUNTANT','MANAGER']));
+
 -- ----------------------------------------------------------------------------
 -- 3) Kolom display name modul ternak utama (nullable, idempotent)
 -- ----------------------------------------------------------------------------

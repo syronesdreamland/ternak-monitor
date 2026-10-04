@@ -137,6 +137,11 @@ export function canCreate(role: UserRole, module: WorkspaceModule): boolean {
   return false;
 }
 
+/** Koreksi (edit) transaksi keuangan: RLS UPDATE financial_transactions = OWNER saja. */
+export function canCorrectFinance(role: UserRole): boolean {
+  return role === 'OWNER' || role === 'DEVELOPER' || role === 'ADMIN';
+}
+
 /**
  * Boleh MENGEDIT data di module tertentu.
  * v1.1: hanya MANAGER (di areanya) + DEVELOPER/ADMIN. Owner tidak mengedit

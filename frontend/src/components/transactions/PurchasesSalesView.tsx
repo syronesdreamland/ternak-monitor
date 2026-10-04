@@ -4,7 +4,7 @@ import { storeService } from '../../services/storeService';
 import { SalesRecord } from '../../types';
 import { formatRupiah, formatDate } from '../../utils/formatters';
 import { prepareImageForStorage } from '../../utils/image';
-import { canCreate, canDelete } from '../../services/permissions';
+import { canCreate } from '../../services/permissions';
 
 interface PurchasesSalesViewProps {
   onOpenAddLivestock: () => void;
@@ -17,7 +17,8 @@ export const PurchasesSalesView: React.FC<PurchasesSalesViewProps> = ({ onOpenAd
   const [processingPhotoId, setProcessingPhotoId] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState('');
   const canCreateSales = canCreate(storeService.currentUser.role, 'transactions');
-  const canDeleteSales = canDelete(storeService.currentUser.role, 'transactions');
+  // Void menghapus transaksi kas terkait -> RLS hanya mengizinkan OWNER.
+  const canDeleteSales = ['OWNER', 'DEVELOPER', 'ADMIN'].includes(storeService.currentUser.role);
 
   // Form
   const [invoiceNo, setInvoiceNo] = useState(`TRX-SALES-${Date.now().toString().slice(-6)}`);
