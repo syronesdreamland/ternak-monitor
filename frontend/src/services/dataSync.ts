@@ -481,6 +481,29 @@ const PUSH_DEBOUNCE_MS = 400;
 /** Snapshot terakhir yang diketahui tersinkron, per storage key. */
 const lastSynced = new Map<string, string>(); // key -> JSON array tersinkron
 
+// ---------------------------------------------------------------------------
+// OUTBOX PERSISTEN: daftar key yang lokal-nya berubah tetapi push ke DB belum
+// TERKONFIRMASI sukses. Disimpan di localStorage sehingga bertahan melewati
+// reload halaman (Safari/iOS sering reload mid-session — proteksi in-memory
+// saja hilang saat reload, itulah lubang yang membuat input "hilang begitu
+// saja" untuk kedua kalinya). Selama sebuah key tercatat di sini, pull TIDAK
+// boleh menimpa isi lokal sebelum perubahan itu benar-benar ter-push.
+// ---------------------------------------------------------------------------
+const OUTBOX_STORAGE_KEY = 'duta_agri_sync_outbox_v1';
+
+function loadOutbox(): Record<string, true> {
+  try {
+    return JSON.parse(localStorage.getItem(OUTBOX_STORAGE_KEY) || '{}') as Record<string, true>;
+  } catch { return {}; }
+}
+
+/** Outbox persisten: key yang lokal-nya dirty (push belum terkonfirmasi). */
+const pendingOutbox = loadOutbox();
+
+function saveOutbox(): void {
+  try { localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(pendingOutbox)); } catch { /* kuota penuh — abaikan */ }
+}
+
 function serialize<T>(items: T[], def: TableDef<T>): string {
   return JSON.stringify(items.map((x) => def.toRow(x)));
 }
@@ -519,17 +542,22 @@ class DataSync {
           // menimpa input pengguna yang masih hidup hanya di lokal (gejala:
           // "pengajuan baru hilang begitu saja dari daftar").
           const syncedJson = lastSynced.get(m.key);
-          if (syncedJson !== undefined) {
-            const localJson = serialize(m.get() as never[], m.def as TableDef<never>);
-            if (localJson !== syncedJson) {
-              await this.pushKey(m);
-              const localAfter = serialize(m.get() as never[], m.def as TableDef<never>);
-              if (localAfter !== lastSynced.get(m.key)) {
-                // Flush gagal (jaringan/RLS): JANGAN timpa lokal dgn data DB —
-                // biarkan perubahan pengguna tetap hidup utk retry berikutnya.
-                console.warn(`[dataSync] pull ${m.def.table} ditunda: ada perubahan lokal belum ter-push`);
-                continue;
-              }
+          const dirtyInMemory = syncedJson !== undefined &&
+            serialize(m.get() as never[], m.def as TableDef<never>) !== syncedJson;
+          // Outbox persisten: dirty flag bertahan melewati reload halaman.
+          // Setelah reload, lastSynced kosong & lokal = snapshot DB lama,
+          // sehingga dirtyInMemory saja tidak cukup mendeteksi perubahan
+          // yang belum terkirim — outbox yang menyelamatkannya.
+          const dirtyPersistent = !!pendingOutbox[m.key];
+          if (dirtyInMemory || dirtyPersistent) {
+            await this.pushKey(m);
+            const localAfter = serialize(m.get() as never[], m.def as TableDef<never>);
+            const stillDirty = localAfter !== lastSynced.get(m.key) || !!pendingOutbox[m.key];
+            if (stillDirty) {
+              // Flush gagal (jaringan/RLS): JANGAN timpa lokal dgn data DB —
+              // biarkan perubahan pengguna tetap hidup utk retry berikutnya.
+              console.warn(`[dataSync] pull ${m.def.table} ditunda: ada perubahan lokal belum ter-push`);
+              continue;
             }
           }
           let query = client.from(m.def.table).select('*');
@@ -580,6 +608,13 @@ class DataSync {
         this.pendingWhilePulling.add(key);
       }
       return;
+    }
+    // Tandai DIRTY secara persisten SEBELUM push dijadwalkan: bila halaman
+    // reload / pull menimpa sebelum push selesai, outbox di localStorage
+    // tetap mengingatkan bahwa key ini belum terkonfirmasi terkirim.
+    if (!pendingOutbox[key]) {
+      pendingOutbox[key] = true;
+      saveOutbox();
     }
     const m = ALL_MAPPINGS.find((x) => x.key === key);
     if (!m) return;
@@ -635,6 +670,9 @@ class DataSync {
         if (error) { console.warn(`[dataSync] delete ${def.table}:`, error.message); return; }
       }
       lastSynced.set(m.key, currentJson);
+      // Push sukses -> bersihkan penanda outbox utk key ini.
+      delete pendingOutbox[m.key];
+      saveOutbox();
       // Tandai push terakhir per tabel utk guard echo realtime (3 dtk).
       this.recentSelfPush[def.table] = Date.now();
     } catch (e) {
