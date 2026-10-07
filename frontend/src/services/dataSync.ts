@@ -487,6 +487,7 @@ function serialize<T>(items: T[], def: TableDef<T>): string {
 
 class DataSync {
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
+  private pendingWhilePulling = new Set<string>();
   private pulling = false;
   public enabled = false;
 
@@ -513,6 +514,24 @@ class DataSync {
       let changed = false;
       for (const m of ALL_MAPPINGS) {
         try {
+          // FLUSH-FIRST: bila ada perubahan lokal yang belum ter-push untuk
+          // tabel ini, dorong dulu ke DB SEBELUM pull. Tanpa ini, pull bisa
+          // menimpa input pengguna yang masih hidup hanya di lokal (gejala:
+          // "pengajuan baru hilang begitu saja dari daftar").
+          const syncedJson = lastSynced.get(m.key);
+          if (syncedJson !== undefined) {
+            const localJson = serialize(m.get() as never[], m.def as TableDef<never>);
+            if (localJson !== syncedJson) {
+              await this.pushKey(m);
+              const localAfter = serialize(m.get() as never[], m.def as TableDef<never>);
+              if (localAfter !== lastSynced.get(m.key)) {
+                // Flush gagal (jaringan/RLS): JANGAN timpa lokal dgn data DB —
+                // biarkan perubahan pengguna tetap hidup utk retry berikutnya.
+                console.warn(`[dataSync] pull ${m.def.table} ditunda: ada perubahan lokal belum ter-push`);
+                continue;
+              }
+            }
+          }
           let query = client.from(m.def.table).select('*');
           if (m.def.pullFilter) query = m.def.pullFilter(query);
           const { data, error } = await query;
@@ -540,12 +559,28 @@ class DataSync {
     } finally {
       syncState.paused = false;
       this.pulling = false;
+      // Push ulang koleksi yang berubah LOKAL saat pull sedang berjalan.
+      // Tanpa ini, perubahan yang dibuat pengguna selama/di ambang pull
+      // (atau push yang belum selesai) tertimpa hasil pull -> data
+      // "hilang" di daftar tanpa pernah sampai ke DB.
+      if (this.pendingWhilePulling.size > 0) {
+        const keys = [...this.pendingWhilePulling];
+        this.pendingWhilePulling.clear();
+        for (const key of keys) this.onCollectionChanged(key);
+      }
     }
   }
 
   /** Dipanggil dari saveStorage (storeService) / agroStore / financialDocuments. */
   onCollectionChanged(key: string): void {
-    if (!this.enabled || !supabase() || syncState.paused) return;
+    if (!this.enabled || !supabase() || syncState.paused) {
+      // Jangan buang notifikasi saat pull berjalan: catat agar di-push
+      // ulang setelah pull selesai (lihat finally di pullAll).
+      if (this.enabled && syncState.paused && this.pulling) {
+        this.pendingWhilePulling.add(key);
+      }
+      return;
+    }
     const m = ALL_MAPPINGS.find((x) => x.key === key);
     if (!m) return;
     const existing = this.timers.get(key);
@@ -600,6 +635,8 @@ class DataSync {
         if (error) { console.warn(`[dataSync] delete ${def.table}:`, error.message); return; }
       }
       lastSynced.set(m.key, currentJson);
+      // Tandai push terakhir per tabel utk guard echo realtime (3 dtk).
+      this.recentSelfPush[def.table] = Date.now();
     } catch (e) {
       console.warn(`[dataSync] push ${def.table} exception:`, e);
     }
@@ -621,6 +658,8 @@ class DataSync {
   // -------------------------------------------------------------------------
   private channel: ReturnType<NonNullable<ReturnType<typeof supabase>>['channel']> | null = null;
   private remoteEvent = false;
+  /** Tabel -> timestamp push terakhir dari device ini (guard realtime echo). */
+  private recentSelfPush: Record<string, number> = {};
 
   subscribeRealtime(): void {
     const client = supabase();
@@ -629,7 +668,10 @@ class DataSync {
     const channel = client.channel('data-sync');
     for (const table of tables) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table } as never, () => {
-        if (this.remoteEvent) return; // event dari push kita sendiri -> ignore
+        // Abaikan event hasil push device ini sendiri: realtime channel
+        // menerima perubahan yang dilakukan klien ini juga. Tanpa ini setiap
+        // push memicu pull balik (boros + memperluas jendela race pull-vs-input).
+        if (this.recentSelfPush[table] && Date.now() - this.recentSelfPush[table] < 3000) return;
         void this.pullAll();
       });
     }
