@@ -26,10 +26,23 @@ export async function saveAttachments(files: File[]): Promise<string[]> {
   // Path R2 bila Supabase tersedia.
   if (hasSupabase()) {
     const ids: string[] = [];
+    let r2Ok = 0;
     for (const file of files) {
-      const id = await uploadToR2(file);
-      ids.push(id);
+      try {
+        const id = await uploadToR2(file);
+        ids.push(id);
+        r2Ok++;
+      } catch {
+        // R2 gagal (CORS bucket belum diset / edge down / jaringan) —
+        // jangan gagalkan seluruh aksi user ("Failed to fetch"): fallback
+        // ke IndexedDB lokal. File tetap tersimpan & bisa diverifikasi;
+        // sinkronisasi antar-perangkat lampiran menyusul setelah CORS R2
+        // diaktifkan di Cloudflare dashboard.
+        const fallbackIds = await saveToIndexedDb([file]);
+        ids.push(...fallbackIds);
+      }
     }
+    if (r2Ok === 0) console.warn('[r2Storage] semua upload R2 gagal — memakai IndexedDB lokal');
     return ids;
   }
 

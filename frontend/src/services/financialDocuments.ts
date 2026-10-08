@@ -205,12 +205,12 @@ export class FinancialDocumentsStore {
     invoice.paymentStatus = 'Menunggu Verifikasi'; this.audit(actor, 'Unggah Pembayaran', invoice.id, String(amount)); this.save(); return invoice;
   }
   verifyPayment(invoiceId: string, paymentId: string, actor: Actor) {
-    this.requireRole(actor, ['ACCOUNTANT'], 'Hanya Akuntan yang dapat memverifikasi pembayaran.');
+    this.requireRole(actor, ['ACCOUNTANT', 'OWNER', 'DEVELOPER', 'ADMIN'], 'Hanya Akuntan atau Owner yang dapat memverifikasi pembayaran.');
     const invoice = this.mustInvoice(invoiceId); const payment = invoice.payments.find(item => item.id === paymentId); if (!payment || payment.status !== 'Menunggu Verifikasi') throw new Error('Pembayaran tidak menunggu verifikasi.');
     payment.status = 'Terverifikasi'; payment.verifiedBy = actor.name; this.recalculatePayment(invoice); this.audit(actor, 'Verifikasi Pembayaran', invoice.id, payment.id); this.save(); return invoice;
   }
   rejectPayment(invoiceId: string, paymentId: string, reason: string, actor: Actor) {
-    this.requireRole(actor, ['ACCOUNTANT'], 'Hanya Akuntan yang dapat menolak pembayaran.'); if (!reason.trim()) throw new Error('Alasan penolakan wajib diisi.');
+    this.requireRole(actor, ['ACCOUNTANT', 'OWNER', 'DEVELOPER', 'ADMIN'], 'Hanya Akuntan atau Owner yang dapat menolak pembayaran.'); if (!reason.trim()) throw new Error('Alasan penolakan wajib diisi.');
     const invoice = this.mustInvoice(invoiceId); const payment = invoice.payments.find(item => item.id === paymentId); if (!payment) throw new Error('Pembayaran tidak ditemukan.');
     payment.status = 'Ditolak'; payment.rejectionReason = reason; this.recalculatePayment(invoice); this.audit(actor, 'Tolak Pembayaran', invoice.id, reason); this.save(); return invoice;
   }
