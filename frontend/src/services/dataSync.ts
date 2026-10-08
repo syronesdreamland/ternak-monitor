@@ -586,7 +586,13 @@ class DataSync {
           const rows = data as Record<string, unknown>[];
           const items = rows.map((r) => (m.def as TableDef<never>).fromRow(r));
           m.set(items as never[]);
-          lastSynced.set(m.key, JSON.stringify(rows));
+          // Simpan snapshot dlm BENTUK YANG SAMA dgn pembanding pushKey
+          // (toRow canonical), bukan raw DB row. Raw row utk kolom meta yang
+          // diisi toRow (title/requested_at dll) beda bentuk dgn hasil toRow
+          // → serialize(get()) TIDAK PERNAH sama → setiap realtime pull
+          // menganggap tabel dirty → flush-first mem-push ulang SELURUH list
+          // (incl. row yang baru dihapus device lain) → RESURRECTION.
+          lastSynced.set(m.key, serialize(items, m.def as TableDef<never>));
           changed = true;
         } catch (e) {
           console.warn(`[dataSync] pull ${m.def.table} exception:`, e);
