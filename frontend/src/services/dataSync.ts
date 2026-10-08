@@ -679,7 +679,10 @@ class DataSync {
           // lain yang keikutsertaan karena diff penuh pasca-reload) membuat
           // SELURUH batch gagal, termasuk row baru milik user ini. Kirim
           // satu-per-satu; row yang sukses tetap terselamatkan.
-          if (changed.length > 1) {
+          // CATATAN: fallback dijalankan untuk batch APAPUN ukurannya
+          // (termasuk 1 row): tanpa rekonsiliasi, salinan basi dokumen milik
+          // user lain stuck di outbox -> pull tabel ditunda terus-menerus.
+          {
             const failedRows: Record<string, unknown>[] = [];
             for (const row of payload) {
               const { error: rowErr } = await client.from(def.table).upsert([row], { onConflict: 'id' });
@@ -750,8 +753,6 @@ class DataSync {
                 return;
               }
             }
-          } else {
-            return;
           }
         }
       }
