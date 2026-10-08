@@ -504,6 +504,15 @@ function saveOutbox(): void {
   try { localStorage.setItem(OUTBOX_STORAGE_KEY, JSON.stringify(pendingOutbox)); } catch { /* kuota penuh — abaikan */ }
 }
 
+/** Stringify kanonik (urutan key dinormalisasi) utk membandingkan payload jsonb —
+ *  jsonb Postgres TIDAK menjaga urutan key, JSON.stringify biasa menghasilkan false-mismatch. */
+function canonJson(v: unknown): string {
+  if (v === null || v === undefined || typeof v !== 'object') return JSON.stringify(v ?? null);
+  if (Array.isArray(v)) return '[' + v.map(canonJson).join(',') + ']';
+  const obj = v as Record<string, unknown>;
+  return '{' + Object.keys(obj).sort().map((k) => JSON.stringify(k) + ':' + canonJson(obj[k])).join(',') + '}';
+}
+
 function serialize<T>(items: T[], def: TableDef<T>): string {
   return JSON.stringify(items.map((x) => def.toRow(x)));
 }
@@ -663,7 +672,88 @@ class DataSync {
           return row;
         });
         const { error } = await client.from(def.table).upsert(payload, { onConflict: 'id' });
-        if (error) { console.warn(`[dataSync] upsert ${def.table}:`, error.message); return; }
+        if (error) {
+          console.warn(`[dataSync] upsert ${def.table}:`, error.message);
+          // FALLBACK PER-ROW: upsert batch bersifat all-or-nothing di sisi
+          // PostgREST — satu row yang ditolak RLS (mis. dokumen milik user
+          // lain yang keikutsertaan karena diff penuh pasca-reload) membuat
+          // SELURUH batch gagal, termasuk row baru milik user ini. Kirim
+          // satu-per-satu; row yang sukses tetap terselamatkan.
+          if (changed.length > 1) {
+            const failedRows: Record<string, unknown>[] = [];
+            for (const row of payload) {
+              const { error: rowErr } = await client.from(def.table).upsert([row], { onConflict: 'id' });
+              if (rowErr) {
+                console.warn(`[dataSync] per-row upsert ${def.table} id=${row.id}:`, rowErr.message);
+                failedRows.push(row);
+              }
+            }
+            if (failedRows.length === 0) {
+              // Semua row selamat via jalur per-row — lanjut seperti sukses.
+            } else {
+              // REKONSILIASI RLS: row yang ditolak server hampir selalu dokumen
+              // milik user lain yang ter-bawa diff penuh pasca-reload. Bandingkan
+              // isinya dengan DB (read RLS):
+              //   - identik  -> salinan basi, buang dari lokal (DB-wins utk dokumen
+              //     milik user lain), outbox bersih, pull kembali normal;
+              //   - beda     -> pertahankan lokal (bisa jadi edit penting), biarkan
+              //     outbox menyala agar tidak ditimpa pull.
+              try {
+                const failedIds = failedRows.map((r) => String(r.id));
+                const { data: serverRows, error: selErr } = await client
+                  .from(def.table)
+                  .select(def.columns.join(','))
+                  .in('id', failedIds);
+                if (selErr) {
+                  console.warn(`[dataSync] ${def.table}: rekonsiliasi gagal baca DB:`, selErr.message);
+                  const okRows2 = currentRows.filter((r) => !failedRows.some((f) => String(f.id) === String(r.id)));
+                  lastSynced.set(m.key, JSON.stringify(okRows2));
+                  saveOutbox();
+                  this.recentSelfPush[def.table] = Date.now();
+                  return;
+                }
+                const serverRowsTyped = (serverRows ?? []) as unknown as Record<string, unknown>[];
+                const serverById = new Map(serverRowsTyped.map((r) => [String(r.id), r]));
+                const staleIds = new Set<string>();
+                for (const f of failedRows) {
+                  const srv = serverById.get(String(f.id));
+                  if (srv && canonJson(srv) === canonJson(f)) staleIds.add(String(f.id));
+                }
+                if (staleIds.size > 0 && m.key !== 'approvals') {
+                  const items2 = m.get() as unknown as Record<string, unknown>[];
+                  const cleaned = items2.filter((x) => !staleIds.has(String(x.id)));
+                  m.set(cleaned as never);
+                } else if (staleIds.size > 0) {
+                  // approvals legacy TANPA payload: tak ada isi lokal utk dibandingkan
+                  // (fromRow mengembalikan objek meta) — biarkan pull DB-wins.
+                  const okRows2 = currentRows.filter((r) => !failedRows.some((f) => String(f.id) === String(r.id)));
+                  lastSynced.set(m.key, JSON.stringify(okRows2));
+                }
+                const remaining = failedRows.filter((r) => !staleIds.has(String(r.id)));
+                if (remaining.length === 0) {
+                  console.warn(`[dataSync] ${def.table}: ${staleIds.size} row salinan basi dibuang (RLS lain-milik) — sync normal`);
+                  // lanjut: outbox dibersihkan & lastSynced final di bawah
+                } else {
+                  const okRows3 = currentRows.filter((r) => !remaining.some((f) => String(f.id) === String(r.id)));
+                  lastSynced.set(m.key, JSON.stringify(okRows3));
+                  saveOutbox();
+                  this.recentSelfPush[def.table] = Date.now();
+                  console.warn(`[dataSync] ${def.table}: ${remaining.length} row beda dgn DB dipertahankan lokal — outbox tetap menyala`);
+                  return;
+                }
+              } catch (recErr) {
+                console.warn(`[dataSync] ${def.table} rekonsiliasi exception:`, recErr);
+                const okRows2 = currentRows.filter((r) => !failedRows.some((f) => String(f.id) === String(r.id)));
+                lastSynced.set(m.key, JSON.stringify(okRows2));
+                saveOutbox();
+                this.recentSelfPush[def.table] = Date.now();
+                return;
+              }
+            }
+          } else {
+            return;
+          }
+        }
       }
       if (removedIds.length > 0) {
         const { error } = await client.from(def.table).delete().in('id', removedIds);
