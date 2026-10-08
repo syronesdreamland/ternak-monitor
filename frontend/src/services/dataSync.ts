@@ -658,17 +658,48 @@ class DataSync {
     const prevRows: Record<string, unknown>[] = prevJson ? JSON.parse(prevJson) : [];
     const prevById = new Map(prevRows.map((r) => [String(r.id), r]));
     const currentIds = new Set(currentRows.map((r) => String(r.id)));
+    // Login-push = pushKey dijalankan saat lastSynced kosong (belum pernah
+    // pull sukses utk key ini). Tanpa acuan DB, diff dianggap "semua row
+    // lokal = baru" → seluruh list di-upsert, termasuk salinan basi dokumen
+    // milik user lain ATAU row yang baru dihapus device lain → RESURRECTION.
+    // Guard: cek dulu DB. DB kosong → OK, lokal benar-benar baru. DB terisi
+    // → hanya kirim row yang TIDAK ADA di DB (insert murni); kecocokan lain
+    // serahkan ke pull (DB-wins), jangan pernah upsert balik buta.
+    const isLoginPush = prevJson === undefined;
+    let dbExistingIds: Set<string> | null = null;
+    if (isLoginPush) {
+      try {
+        const { data: dbRows, error: dbErr } = await client
+          .from(def.table)
+          .select('id');
+        if (!dbErr) dbExistingIds = new Set((dbRows ?? []).map((r: Record<string, unknown>) => String(r.id)));
+      } catch { /* baca gagal → dbExistingIds tetap null → fallback perilaku lama */ }
+    }
 
     // 1) Upsert row baru / berubah
-    const changed = currentRows.filter((r) => {
+    let changed = currentRows.filter((r) => {
       const prev = prevById.get(String(r.id));
       return !prev || JSON.stringify(prev) !== JSON.stringify(r);
     });
     // 2) Delete row yang hilang (livestock pakai soft-delete, tidak pernah hard delete)
-    const removedIds = prevRows
+    let removedIds = prevRows
       .map((r) => String(r.id))
       .filter((id) => !currentIds.has(id))
       .filter((id) => def.table !== 'livestock');
+    if (isLoginPush && dbExistingIds) {
+      if (dbExistingIds.size === 0) {
+        // DB kosong = produksi mulai segar; lokal (lokal-only session) menang.
+        changed = currentRows;
+        removedIds = [];
+      } else {
+        // DB terisi: kirim HANYA row yang belum ada di DB (input baru yang
+        // dibuat offline sebelum login). Row yang sudah ada di DB jangan
+        // disentuh — pulihan DB bisa lebih baru (diubah device lain) atau
+        // sudah dihapus → upsert balik = resurrection.
+        changed = currentRows.filter((r) => !dbExistingIds.has(String(r.id)));
+        removedIds = [];
+      }
+    }
 
     try {
       if (changed.length > 0) {
