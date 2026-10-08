@@ -21,6 +21,30 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // AUDIT 2026-10-08 [C1]: WAJIB verifikasi JWT user. Sebelumnya siapa pun
+  // dengan anon key (publik di bundle) bisa minta presigned URL & meng-host
+  // file arbitrer (terbukti: HTML+JS & SVG malicious tersimpan & dilayani
+  // sebagai text/html di domain publik r2.dev).
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const jwt = authHeader.replace(/^Bearer\s+/i, "");
+  if (!jwt) {
+    return new Response(JSON.stringify({ error: "Unauthorized." }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const { data: userData, error: authErr } = await (await import("npm:@supabase/supabase-js@2"))
+    .createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } },
+    )
+    .auth.getUser(jwt);
+  if (authErr || !userData?.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized." }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const accountId = Deno.env.get("R2_ACCOUNT_ID");
     const accessKeyId = Deno.env.get("R2_ACCESS_KEY_ID");
@@ -37,6 +61,18 @@ Deno.serve(async (req) => {
     if (!fileName || !contentType) {
       return new Response(JSON.stringify({ error: "fileName & contentType wajib." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // AUDIT 2026-10-08 [C1]: whitelist content-type. text/html & svg bisa
+    // mengeksekusi script saat dibuka → vektor XSS/phishing. Client-side
+    // sudah membatasi accept="image/jpeg,image/png,image/webp,application/pdf".
+    const ALLOWED_TYPES = new Set([
+      "image/jpeg", "image/png", "image/webp", "application/pdf",
+    ]);
+    if (!ALLOWED_TYPES.has(contentType)) {
+      return new Response(JSON.stringify({ error: "Tipe file tidak diizinkan." }), {
+        status: 415, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
