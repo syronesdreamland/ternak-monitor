@@ -6,6 +6,7 @@ import {
 import { storeService } from '../../services/storeService';
 import { financialDocumentsStore } from '../../services/financialDocuments';
 import { canEdit } from '../../services/permissions';
+import { DashboardExpenseSummary } from './DashboardExpenseSummary';
 import { formatRupiah, formatDate } from '../../utils/formatters';
 
 interface DashboardOverviewProps {
@@ -129,6 +130,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
 
       </div>
+
+      {/* Ringkasan Pengeluaran — khusus Owner (mantau biaya operasional) */}
+      <DashboardExpenseSummary onNavigateTab={onNavigateTab} />
 
       {/* Funding and invoice workflow indicators */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
