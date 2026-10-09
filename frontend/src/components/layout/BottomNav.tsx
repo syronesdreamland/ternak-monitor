@@ -1,6 +1,7 @@
 import React from 'react';
 import { Database, LayoutDashboard, Plus, ReceiptText, ShoppingCart, Wallet, WalletCards, Wheat } from 'lucide-react';
 import type { UserRole } from '../../types';
+import { canEdit } from '../../services/permissions';
 
 interface BottomNavProps {
   activeTab: string;
@@ -41,10 +42,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
     const Icon = item.icon; const isActive = activeTab === item.id;
     return <button key={item.id} type="button" onClick={() => setActiveTab(item.id)} aria-current={isActive ? 'page' : undefined} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-bold transition ${isActive ? 'text-[#1B5E20]' : 'text-slate-400'}`}><span className={`rounded-lg p-1 ${isActive ? 'bg-[#F1F5F9]' : ''}`}><Icon className="h-5 w-5" /></span><span>{item.label}</span></button>;
   };
+  const canInput = canEdit(role);
+  const colCount = items.length + (canInput ? 1 : 0);
   return <nav aria-label="Navigasi cepat" className="app-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-[#1B5E20]/15 bg-white/95 px-2 pt-1.5 shadow-[0_-12px_30px_rgba(15,50,38,0.1)] backdrop-blur-xl lg:hidden">
-    <div className="mx-auto grid max-w-lg grid-cols-5 items-end">
+    <div className="mx-auto grid max-w-lg items-end" style={{ gridTemplateColumns: `repeat(${colCount}, minmax(0, 1fr))` }}>
       {items.slice(0, splitIndex).map(renderItem)}
-      <button type="button" onClick={onOpenQuickAction} className="group flex min-h-14 flex-col items-center justify-end gap-1 text-[10px] font-bold text-[#1B5E20]" aria-label="Tambah catatan baru"><span className="flex h-12 w-12 -translate-y-2 items-center justify-center rounded-2xl bg-[#1B5E20] text-white shadow-lg shadow-[#1B5E20]/20 ring-4 ring-[#FFFFFF] transition active:scale-95"><Plus className="h-6 w-6" /></span><span className="-mt-2">Tambah</span></button>
+      {/* FIX 2026-10-09 (audit dashboard, opsi A): sembunyikan utk role non-inputer
+          — QuickActionsModal di-gate canEdit di App.tsx, tombol tampil tapi mati. */}
+      {canInput && (
+        <button type="button" onClick={onOpenQuickAction} className="group flex min-h-14 flex-col items-center justify-end gap-1 text-[10px] font-bold text-[#1B5E20]" aria-label="Tambah catatan baru"><span className="flex h-12 w-12 -translate-y-2 items-center justify-center rounded-2xl bg-[#1B5E20] text-white shadow-lg shadow-[#1B5E20]/20 ring-4 ring-[#FFFFFF] transition active:scale-95"><Plus className="h-6 w-6" /></span><span className="-mt-2">Tambah</span></button>
+      )}
       {items.slice(splitIndex).map(renderItem)}
     </div>
   </nav>;

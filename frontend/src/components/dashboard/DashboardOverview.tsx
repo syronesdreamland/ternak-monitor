@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { storeService } from '../../services/storeService';
 import { financialDocumentsStore } from '../../services/financialDocuments';
+import { canEdit } from '../../services/permissions';
 import { formatRupiah, formatDate } from '../../utils/formatters';
 
 interface DashboardOverviewProps {
@@ -54,13 +55,17 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <button
-            onClick={onOpenQuickAction}
-            className="ranch-action-secondary relative z-10 bg-white/10! text-[#FFFFFF]! border-white/35!"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Aksi Kandang</span>
-          </button>
+          {/* FIX 2026-10-09 (audit dashboard, opsi A): sembunyikan utk role non-inputer
+              — QuickActionsModal di-gate canEdit di App.tsx, tombol tampil tapi mati. */}
+          {canEdit(storeService.currentUser.role) && (
+            <button
+              onClick={onOpenQuickAction}
+              className="ranch-action-secondary relative z-10 bg-white/10! text-[#FFFFFF]! border-white/35!"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Aksi Kandang</span>
+            </button>
+          )}
         </div>
       </div>
 

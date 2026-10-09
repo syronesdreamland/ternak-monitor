@@ -90,7 +90,7 @@ export const MasterDataView: React.FC = () => {
         kicker="Report & System"
         title="Master Data & Role"
         subtitle="Kelola data referensi sistem: peran, lokasi, kategori biaya, satuan, dan divisi."
-        actions={<AddButton onClick={openAdd} label="Tambah Data" />}
+        actions={<AddButton force onClick={openAdd} label="Tambah Data" />}
       />
 
       <AgroCard className="border-[#E4C25E]/50 bg-[#FBF6E9]/50">

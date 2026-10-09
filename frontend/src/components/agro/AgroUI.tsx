@@ -1,6 +1,8 @@
 import React, { ReactNode } from 'react';
 import { XCircle, FileText, Plus, Search, Download } from 'lucide-react';
 import { exportToExcel, exportToPDF } from '../../utils/formatters';
+import { storeService } from '../../services/storeService';
+import { canEdit } from '../../services/permissions';
 
 // ============================================================================
 // Primitif UI bersama untuk view divisi baru (tema ranch editorial).
@@ -117,6 +119,12 @@ export const ExportButtons: React.FC<{ title: string; headers: string[]; rows: a
   </div>
 );
 
-export const AddButton: React.FC<{ onClick: () => void; label: string }> = ({ onClick, label }) => (
-  <AgroButton onClick={onClick}><Plus className="h-4 w-4" />{label}</AgroButton>
-);
+// FIX 2026-10-09 (audit dashboard, opsi A): tombol "+ Tambah" disembunyikan
+// untuk role non-inputer (canEdit=false: Owner/Finance/Mitra). Sebelumnya
+// tombol tampil tapi aksi input gagal diam-diam (RLS menolak) — kelas bug
+// "tombol mati diam-diam". MasterDataView memakai `force` karena Owner
+// memang pemilik modul master data (canManageMasterData, RLS master_data = OWNER).
+export const AddButton: React.FC<{ onClick: () => void; label: string; force?: boolean }> = ({ onClick, label, force }) => {
+  if (!force && !canEdit(storeService.currentUser.role)) return null;
+  return <AgroButton onClick={onClick}><Plus className="h-4 w-4" />{label}</AgroButton>;
+};

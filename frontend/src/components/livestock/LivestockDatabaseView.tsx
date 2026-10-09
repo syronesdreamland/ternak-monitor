@@ -4,6 +4,7 @@ import {
   Building2, Scale, HeartPulse, Grid, List, Check
 } from 'lucide-react';
 import { storeService } from '../../services/storeService';
+import { canEdit } from '../../services/permissions';
 import { LivestockItem, LivestockType, GenderType, HealthStatusType } from '../../types';
 import { formatAgeString, exportToExcel, exportToPDF } from '../../utils/formatters';
 
@@ -122,6 +123,10 @@ export const LivestockDatabaseView: React.FC<LivestockDatabaseViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          {/* FIX 2026-10-09 (audit dashboard, opsi A): sembunyikan utk role non-inputer
+              — modalnya sudah di-gate canEdit di App.tsx, tombolnya tampil tapi mati. */}
+          {canEdit(storeService.currentUser.role) && (
+            <>
           <button
             onClick={onOpenAddModal}
             className="flex items-center gap-1.5 px-3.5 py-2 bg-[#123D18] hover:bg-[#1B5E20] text-white font-bold rounded-xl text-xs transition shadow-xs cursor-pointer"
@@ -137,6 +142,8 @@ export const LivestockDatabaseView: React.FC<LivestockDatabaseViewProps> = ({
             <Upload className="w-4 h-4" />
             <span>Import CSV/Excel</span>
           </button>
+            </>
+          )}
 
           <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
             <button

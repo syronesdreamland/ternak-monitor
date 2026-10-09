@@ -85,7 +85,11 @@ const FULL_ACCESS: WorkspaceModule[] = [
 
 // v1.1: Owner MEMANTAU semua (dashboard + operasional + keuangan) tapi bukan
 // inputer. canCreate/canEditModule/canDelete di bawah mematikan form input.
-const OWNER_ACCESS: WorkspaceModule[] = FULL_ACCESS;
+// FIX 2026-10-09 (audit dashboard): OWNER juga pemilik modul SYSTEM — sidebar
+// sudah menampilkan menu system utk OWNER (allowedRoles ['OWNER','DEVELOPER']),
+// tapi matrix tidak memuatnya -> guard canAccess me-bounce klik kembali ke
+// Dashboard (menu mati diam-diam: Master Data, Audit Trail, Pengguna, Pengaturan).
+const OWNER_ACCESS: WorkspaceModule[] = [...FULL_ACCESS, ...SYSTEM_MODULES];
 
 // Manager: akses penuh operasional + keuangan, TAPI tidak boleh kelola user/system.
 const MANAGER_ACCESS: WorkspaceModule[] = FULL_ACCESS;
