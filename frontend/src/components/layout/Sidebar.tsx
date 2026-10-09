@@ -47,6 +47,9 @@ export const navigationSections: NavSection[] = [
       { id: 'approval-center', label: 'Approval Center', description: 'Persetujuan terpusat', icon: ShieldCheck, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
       { id: 'cash-flow', label: 'Kas Masuk & Keluar', description: 'Arus kas harian', icon: Banknote, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT'] },
       { id: 'invoices', label: 'Pengajuan Dana & Invoice', description: 'Dana, realisasi & bukti bayar', icon: FileText, allowedRoles: ['OWNER', 'MANAGER', 'ACCOUNTANT', 'MITRA'] },
+      // Owner mantau seluruh data: Laba Rugi langsung di Finance Control
+      // (item sama dengan section Bisnis & keuangan, dedupe render aman).
+      { id: 'finance', label: 'Laporan Laba Rugi', description: 'Pemasukan, biaya & laba', icon: Wallet, allowedRoles: ['OWNER'] },
     ],
   },
   {

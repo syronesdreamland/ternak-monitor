@@ -30,7 +30,7 @@ const roleItems = (role: UserRole) => {
   return [
     { id: 'dashboard', label: 'Beranda', icon: LayoutDashboard },
     { id: 'livestock', label: 'Ternak', icon: Database },
-    { id: 'daily-reports', label: 'Laporan', icon: ReceiptText },
+    { id: 'finance', label: 'Laba Rugi', icon: Wallet },
     { id: 'invoices', label: 'Dana', icon: WalletCards },
   ];
 };
