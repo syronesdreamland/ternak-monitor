@@ -29,6 +29,7 @@ const ExpenseManagementView = lazy(() => import('./components/expenses/ExpenseMa
 const FeedManagementView = lazy(() => import('./components/feed/FeedManagementView').then(module => ({ default: module.FeedManagementView })));
 const WeightMonitoringView = lazy(() => import('./components/weight/WeightMonitoringView').then(module => ({ default: module.WeightMonitoringView })));
 const NotificationsView = lazy(() => import('./components/notifications/NotificationsView').then(module => ({ default: module.NotificationsView })));
+const NotificationPopup = lazy(() => import('./components/notifications/NotificationPopup').then(module => ({ default: module.NotificationPopup })));
 const FinanceView = lazy(() => import('./components/finance/FinanceView').then(module => ({ default: module.FinanceView })));
 const DailyReportsView = lazy(() => import('./components/daily-reports/DailyReportsView').then(module => ({ default: module.DailyReportsView })));
 const ReportsExportView = lazy(() => import('./components/reports/ReportsExportView').then(module => ({ default: module.ReportsExportView })));
@@ -375,6 +376,9 @@ export function App() {
         onOpenQuickAction={() => setIsQuickActionOpen(true)}
         role={currentUser.role}
       />
+
+      {/* Popup notifikasi workflow (pengajuan dana / invoice / verifikasi) */}
+      <Suspense fallback={null}><NotificationPopup /></Suspense>
 
       <MobileNavigationDrawer
         isOpen={isMobileMenuOpen}

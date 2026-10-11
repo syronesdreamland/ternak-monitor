@@ -379,6 +379,12 @@ textarea:focus-visible {
 .scrollbar-subtle::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 9999px; }
 .scrollbar-subtle::-webkit-scrollbar-track { background: transparent; }
 
+/* Popup notifikasi workflow (kanan-bawah) */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .01ms !important;
