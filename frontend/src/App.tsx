@@ -162,7 +162,13 @@ export function App() {
       if (supabaseResult.ok) {
         authSession.setToken(supabaseResult.token);
         storeService.setCurrentUser(supabaseResult.user);
-        void dataSync.enable();
+        // Seamless: JANGAN tampilkan dashboard sebelum pull awal selesai —
+        // tunggu enable() (dengan timeout anti-hang 6 dtk) di sini, sehingga
+        // saat dashboard dirender data sudah terisi (tidak ada jeda "0 semua").
+        const syncPromise = dataSync.enable();
+        const timeout = new Promise<void>(resolve => setTimeout(resolve, 6000));
+        await Promise.race([syncPromise, timeout]);
+        setInitialSyncDone(true);
         setActiveTab(supabaseResult.user.role === 'MITRA' ? 'livestock' : 'dashboard');
         setAuthState('authenticated');
         return;
