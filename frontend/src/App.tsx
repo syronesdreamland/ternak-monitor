@@ -107,7 +107,11 @@ export function App() {
       const supabaseResult = await supabaseRestore();
       if (supabaseResult?.ok) {
         storeService.setCurrentUser(supabaseResult.user);
-        void dataSync.enable();
+        // Seamless restore: tunggu pull awal juga (timeout anti-hang 6 dtk).
+        const syncPromise = dataSync.enable();
+        const timeout = new Promise<void>(resolve => setTimeout(resolve, 6000));
+        await Promise.race([syncPromise, timeout]);
+        setInitialSyncDone(true);
         setActiveTab(supabaseResult.user.role === 'MITRA' ? 'livestock' : 'dashboard');
         setAuthState('authenticated');
         return;
