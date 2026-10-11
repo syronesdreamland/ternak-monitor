@@ -225,12 +225,14 @@ export function App() {
     }
   };
 
-  if (authState === 'checking') {
+  if (authState === 'checking' || (currentUser.role !== 'USER' && !initialSyncDone && hasSupabase())) {
+    const message = authState === 'checking' ? 'Memeriksa sesi pengguna...' : 'Menyiapkan data farm...';
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 text-[#123D18]">
         <div className="text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin" />
-          <p className="mt-3 text-xs font-bold">Memeriksa sesi pengguna...</p>
+          <p className="mt-3 text-xs font-bold">{message}</p>
+          <p className="mt-1 text-[11px] text-slate-500">Sinkronisasi terpusat sedang berjalan</p>
         </div>
       </div>
     );
@@ -261,22 +263,9 @@ export function App() {
     return <LoginPage onLogin={handleLogin} onOpenCatalog={() => setShowPublicCatalog(true)} />;
   }
 
-  // Seamless post-login: tahan render workspace sampai sinkron awal selesai
-  // (pull 38 tabel paralel, biasanya <2 dtk). Timeout 6 dtk anti-hang — bila
-  // sinkron lambat/gagal, dashboard tetap dibuka dan realtime melengkapi.
-  const shouldGate = !initialSyncDone && hasSupabase();
-  if (shouldGate) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 text-[#123D18]">
-        <div className="text-center">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin" />
-          <p className="mt-3 text-xs font-bold">Menyiapkan data farm...</p>
-          <p className="mt-1 text-[11px] text-slate-500">Sinkronisasi terpusat sedang berjalan</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Seamless post-login: gate utama ada di atas (checking/sync). Kondisi ini
+  // hanya fallback untuk kasus authState sudah authenticated tapi flag sync
+  // belum ke-set (mis. restore sesi). Timeout 6 dtk anti-hang di useEffect.
   if (currentUser.role === 'USER') {
     return (
       <div className="app-surface min-h-screen font-sans text-slate-800 antialiased">
