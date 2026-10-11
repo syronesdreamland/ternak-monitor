@@ -522,17 +522,32 @@ class DataSync {
   private pendingWhilePulling = new Set<string>();
   private pulling = false;
   public enabled = false;
+  /** Sinkron awal (pull pertama pasca-login) sudah selesai — dipakai App
+   *  untuk menahan render dashboard agar tidak tampil "data 0 semua" sesaat. */
+  public initialSyncDone = false;
+  /** Penanda versi sinkron awal: naik saat initialSyncDone berubah jadi true
+   *  (React memakai ini sbg dependency re-render). */
+  private listeners = new Set<() => void>();
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => { this.listeners.delete(listener); };
+  }
+  private notifyListeners(): void { this.listeners.forEach(l => l()); }
 
   /** Aktifkan sync setelah login Supabase sukses. */
   async enable(): Promise<void> {
     if (!hasSupabase() || this.enabled) return;
     this.enabled = true;
     await this.pullAll();
+    this.initialSyncDone = true;
+    this.notifyListeners();
     this.subscribeRealtime();
   }
 
   disable(): void {
     this.enabled = false;
+    this.initialSyncDone = false;
     lastSynced.clear();
   }
 
@@ -544,60 +559,81 @@ class DataSync {
     syncState.paused = true; // set/filter saat pull tidak boleh memicu push
     try {
       let changed = false;
+      // PULL PARALEL: 38 tabel ditarik BERSAMAAN (Promise per tabel) alih-alih
+      // berurutan. Pull sekuensial membuat post-login "data 0 semua dulu baru
+      // muncul" — UI sudah dirender sementara pull terakhir (approval_requests,
+      // urutan paling akhir) baru selesai belakangan. Paralel memangkas waktu
+      // sinkron awal dari ~(38 x RTT) menjadi ~(1 x RTT).
+      // FLUSH-FIRST & anti-resurrection per tabel TETAP dipertahankan persis
+      // seperti versi sekuensial — logikanya hanya dipindah ke dalam task.
+      const CONCURRENCY = 8;
+      const tasks: (() => Promise<void>)[] = [];
       for (const m of ALL_MAPPINGS) {
-        try {
-          // FLUSH-FIRST: bila ada perubahan lokal yang belum ter-push untuk
-          // tabel ini, dorong dulu ke DB SEBELUM pull. Tanpa ini, pull bisa
-          // menimpa input pengguna yang masih hidup hanya di lokal (gejala:
-          // "pengajuan baru hilang begitu saja dari daftar").
-          const syncedJson = lastSynced.get(m.key);
-          const dirtyInMemory = syncedJson !== undefined &&
-            serialize(m.get() as never[], m.def as TableDef<never>) !== syncedJson;
-          // Outbox persisten: dirty flag bertahan melewati reload halaman.
-          // Setelah reload, lastSynced kosong & lokal = snapshot DB lama,
-          // sehingga dirtyInMemory saja tidak cukup mendeteksi perubahan
-          // yang belum terkirim — outbox yang menyelamatkannya.
-          const dirtyPersistent = !!pendingOutbox[m.key];
-          if (dirtyInMemory || dirtyPersistent) {
-            await this.pushKey(m);
-            const localAfter = serialize(m.get() as never[], m.def as TableDef<never>);
-            const stillDirty = localAfter !== lastSynced.get(m.key) || !!pendingOutbox[m.key];
-            if (stillDirty) {
-              // Flush gagal (jaringan/RLS): JANGAN timpa lokal dgn data DB —
-              // biarkan perubahan pengguna tetap hidup utk retry berikutnya.
-              console.warn(`[dataSync] pull ${m.def.table} ditunda: ada perubahan lokal belum ter-push`);
-              continue;
+        tasks.push(async () => {
+          try {
+            // FLUSH-FIRST: bila ada perubahan lokal yang belum ter-push untuk
+            // tabel ini, dorong dulu ke DB SEBELUM pull. Tanpa ini, pull bisa
+            // menimpa input pengguna yang masih hidup hanya di lokal (gejala:
+            // "pengajuan baru hilang begitu saja dari daftar").
+            const syncedJson = lastSynced.get(m.key);
+            const dirtyInMemory = syncedJson !== undefined &&
+              serialize(m.get() as never[], m.def as TableDef<never>) !== syncedJson;
+            // Outbox persisten: dirty flag bertahan melewati reload halaman.
+            // Setelah reload, lastSynced kosong & lokal = snapshot DB lama,
+            // sehingga dirtyInMemory saja tidak cukup mendeteksi perubahan
+            // yang belum terkirim — outbox yang menyelamatkannya.
+            const dirtyPersistent = !!pendingOutbox[m.key];
+            if (dirtyInMemory || dirtyPersistent) {
+              await this.pushKey(m);
+              const localAfter = serialize(m.get() as never[], m.def as TableDef<never>);
+              const stillDirty = localAfter !== lastSynced.get(m.key) || !!pendingOutbox[m.key];
+              if (stillDirty) {
+                // Flush gagal (jaringan/RLS): JANGAN timpa lokal dgn data DB —
+                // biarkan perubahan pengguna tetap hidup utk retry berikutnya.
+                console.warn(`[dataSync] pull ${m.def.table} ditunda: ada perubahan lokal belum ter-push`);
+                return;
+              }
             }
-          }
-          let query = client.from(m.def.table).select('*');
-          if (m.def.pullFilter) query = m.def.pullFilter(query);
-          const { data, error } = await query;
-          if (error) { console.warn(`[dataSync] pull ${m.def.table}:`, error.message); continue; }
-          if (!data || data.length === 0) {
-            // DB kosong = sumber kebenaran produksi. Selalu kosongkan lokal
-            // apa pun adanya: data lama perangkat tidak boleh bangkit kembali
-            // (perilaku lama "pertahankan lokal" membuat dummy muncul lagi
-            // setelah refresh dan bisa ter-push balik ke DB saat mutasi).
-            m.set([] as never[]);
-            lastSynced.set(m.key, '[]');
+            let query = client.from(m.def.table).select('*');
+            if (m.def.pullFilter) query = m.def.pullFilter(query);
+            const { data, error } = await query;
+            if (error) { console.warn(`[dataSync] pull ${m.def.table}:`, error.message); return; }
+            if (!data || data.length === 0) {
+              // DB kosong = sumber kebenaran produksi. Selalu kosongkan lokal
+              // apa pun adanya: data lama perangkat tidak boleh bangkit kembali
+              // (perilaku lama "pertahankan lokal" membuat dummy muncul lagi
+              // setelah refresh dan bisa ter-push balik ke DB saat mutasi).
+              m.set([] as never[]);
+              lastSynced.set(m.key, '[]');
+              changed = true;
+              return;
+            }
+            const rows = data as Record<string, unknown>[];
+            const items = rows.map((r) => (m.def as TableDef<never>).fromRow(r));
+            m.set(items as never[]);
+            // Simpan snapshot dlm BENTUK YANG SAMA dgn pembanding pushKey
+            // (toRow canonical), bukan raw DB row. Raw row utk kolom meta yang
+            // diisi toRow (title/requested_at dll) beda bentuk dgn hasil toRow
+            // → serialize(get()) TIDAK PERNAH sama → setiap realtime pull
+            // menganggap tabel dirty → flush-first mem-push ulang SELURUH list
+            // (incl. row yang baru dihapus device lain) → RESURRECTION.
+            lastSynced.set(m.key, serialize(items, m.def as TableDef<never>));
             changed = true;
-            continue;
+          } catch (e) {
+            console.warn(`[dataSync] pull ${m.def.table} exception:`, e);
           }
-          const rows = data as Record<string, unknown>[];
-          const items = rows.map((r) => (m.def as TableDef<never>).fromRow(r));
-          m.set(items as never[]);
-          // Simpan snapshot dlm BENTUK YANG SAMA dgn pembanding pushKey
-          // (toRow canonical), bukan raw DB row. Raw row utk kolom meta yang
-          // diisi toRow (title/requested_at dll) beda bentuk dgn hasil toRow
-          // → serialize(get()) TIDAK PERNAH sama → setiap realtime pull
-          // menganggap tabel dirty → flush-first mem-push ulang SELURUH list
-          // (incl. row yang baru dihapus device lain) → RESURRECTION.
-          lastSynced.set(m.key, serialize(items, m.def as TableDef<never>));
-          changed = true;
-        } catch (e) {
-          console.warn(`[dataSync] pull ${m.def.table} exception:`, e);
-        }
+        });
       }
+      // Jalankan task dgn batas konkurensi agar tidak meledakkan koneksi &
+      // PostgREST rate limit — 8 worker memproses antrean 38 tabel.
+      let taskIndex = 0;
+      const worker = async () => {
+        while (taskIndex < tasks.length) {
+          const idx = taskIndex++;
+          await tasks[idx]();
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, tasks.length) }, () => worker()));
       if (changed) storeService.notifyListeners();
     } finally {
       syncState.paused = false;

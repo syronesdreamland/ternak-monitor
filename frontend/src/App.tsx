@@ -12,7 +12,7 @@ import { canAccess, canEdit } from './services/permissions';
 
 import { storeService } from './services/storeService';
 import { authAPI, authSession } from './services/api';
-import { supabaseSignIn, supabaseRestore, supabaseSignOut } from './services/supabase';
+import { supabaseSignIn, supabaseRestore, supabaseSignOut, hasSupabase } from './services/supabase';
 import { dataSync } from './services/dataSync';
 import { LivestockItem, UserProfile } from './types';
 
@@ -78,6 +78,10 @@ export function App() {
   const [currentUser, setCurrentUser] = useState(storeService.currentUser);
   const [globalSearch, setGlobalSearch] = useState('');
   const [authState, setAuthState] = useState<AuthState>('checking');
+  // Seamless sync: tahan render workspace sampai pull awal selesai (max 6 dtk
+  // anti-hang — bila sinkron lambat/gagal, dashboard tetap dibuka dgn data
+  // lokal dan realtime akan melengkapi belakangan).
+  const [initialSyncDone, setInitialSyncDone] = useState(dataSync.initialSyncDone);
   const [showPublicCatalog, setShowPublicCatalog] = useState(false);
   const [isQuickActionOpen, setIsQuickActionOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -91,6 +95,10 @@ export function App() {
     const unsubscribe = storeService.subscribe(() => {
       setCurrentUser(storeService.currentUser);
     });
+    const unsubSync = dataSync.subscribe(() => setInitialSyncDone(dataSync.initialSyncDone));
+    // Anti-hang: bila sinkron awal tidak selesai dalam 6 dtk (jaringan lambat/
+    // gagal), buka dashboard tetap — realtime & push outbox menyusul.
+    const gateTimer = setTimeout(() => setInitialSyncDone(true), 6000);
     const handleUnauthorized = () => setAuthState('guest');
     window.addEventListener('auth:unauthorized', handleUnauthorized);
 
@@ -126,6 +134,8 @@ export function App() {
 
     return () => {
       unsubscribe();
+      unsubSync();
+      clearTimeout(gateTimer);
       window.removeEventListener('auth:unauthorized', handleUnauthorized);
     };
   }, []);
@@ -243,6 +253,22 @@ export function App() {
       );
     }
     return <LoginPage onLogin={handleLogin} onOpenCatalog={() => setShowPublicCatalog(true)} />;
+  }
+
+  // Seamless post-login: tahan render workspace sampai sinkron awal selesai
+  // (pull 38 tabel paralel, biasanya <2 dtk). Timeout 6 dtk anti-hang — bila
+  // sinkron lambat/gagal, dashboard tetap dibuka dan realtime melengkapi.
+  const shouldGate = !initialSyncDone && hasSupabase();
+  if (shouldGate) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 text-[#123D18]">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin" />
+          <p className="mt-3 text-xs font-bold">Menyiapkan data farm...</p>
+          <p className="mt-1 text-[11px] text-slate-500">Sinkronisasi terpusat sedang berjalan</p>
+        </div>
+      </div>
+    );
   }
 
   if (currentUser.role === 'USER') {
