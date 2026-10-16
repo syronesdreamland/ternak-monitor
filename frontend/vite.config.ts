@@ -19,8 +19,8 @@ export default defineConfig(() => ({
         display: 'standalone',
         start_url: '/',
         icons: [
-          { src: '/duta-agri-logo.png', sizes: '499x499', type: 'image/png', purpose: 'any' },
-          { src: '/duta-agri-logo.png', sizes: '499x499', type: 'image/png', purpose: 'any maskable' },
+          { src: '/petedahnu-logo.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/petedahnu-logo.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
         ],
       },
       workbox: {

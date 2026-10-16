@@ -188,11 +188,11 @@ export const LivestockFormModal: React.FC<LivestockFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 animate-fade-in">
-      <div className="bg-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex animate-fade-in items-end justify-center bg-slate-900/60 p-0 backdrop-blur-xs sm:items-center sm:p-4">
+      <div className="flex max-h-[94dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[92vh] sm:rounded-2xl">
         
         {/* Header */}
-        <div className="p-4 bg-[#123D18] text-white flex items-center justify-between">
+        <div className="shrink-0 bg-[#123D18] p-4 text-white flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold">
               {editItem ? `Edit Data Ternak (${editItem.tagId})` : 'Tambah Ternak Baru'}

@@ -17,7 +17,7 @@ export const DutaAgriNusantaraLogo: React.FC<DutaAgriNusantaraLogoProps> = ({
   if (variant === 'mark') {
     return (
       <img
-        src="/duta-agri-logo.png"
+        src="/petedahnu-logo.png"
         alt="Logo PT Duta Agri Nusantara"
         className={`shrink-0 ${className}`}
         style={{ height: 36, width: 36, borderRadius: 9, objectFit: 'contain' }}
@@ -28,7 +28,7 @@ export const DutaAgriNusantaraLogo: React.FC<DutaAgriNusantaraLogoProps> = ({
   return (
     <div className={`inline-flex items-center gap-2.5 ${className}`}>
       <img
-        src="/duta-agri-logo.png"
+        src="/petedahnu-logo.png"
         alt="Logo PT Duta Agri Nusantara"
         className="h-9 w-9 shrink-0"
         style={{ borderRadius: 9, objectFit: 'contain' }}

@@ -208,9 +208,9 @@ export const HealthManagementView: React.FC = () => {
 
       {/* Input Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200">
-            <div className="p-4 bg-rose-900 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-xs sm:items-center sm:p-4">
+          <div className="max-h-[94dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[92vh] sm:rounded-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between bg-rose-900 p-4 text-white">
               <h3 className="text-base font-bold">
                 {editingRecordId ? 'Edit Rekam Kesehatan & Obat' : 'Lapor Rekam Kesehatan & Obat'}
               </h3>

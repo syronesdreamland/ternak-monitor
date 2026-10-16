@@ -182,9 +182,9 @@ export const FeedManagementView: React.FC = () => {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200">
-            <div className="p-4 bg-[#123D18] text-white flex items-center justify-between font-bold">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 backdrop-blur-xs sm:items-center sm:p-4">
+          <div className="max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[92vh] sm:rounded-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between bg-[#123D18] p-4 font-bold text-white">
               <h3>{editingFeedId ? 'Edit Stok Pakan' : 'Input Stok Pakan Baru'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-1 hover:bg-[#1B5E20] rounded">
                 <X className="w-5 h-5" />

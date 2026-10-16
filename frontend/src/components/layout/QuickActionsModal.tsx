@@ -77,11 +77,11 @@ export const QuickActionsModal: React.FC<QuickActionsModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 animate-fade-in">
-      <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex animate-fade-in items-end justify-center bg-slate-900/60 p-0 backdrop-blur-xs sm:items-center sm:p-4">
+      <div className="flex max-h-[94dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[92vh] sm:rounded-2xl">
         
         {/* Header */}
-        <div className="px-4 pt-4 pb-3 bg-[#123D18] text-white flex items-center justify-between gap-3">
+        <div className="shrink-0 bg-[#123D18] px-4 pt-4 pb-3 text-white flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="p-2 rounded-lg bg-white/15 shrink-0">
               <FileSpreadsheet className="w-5 h-5 text-[#F8FAFC]" />

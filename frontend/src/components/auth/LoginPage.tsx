@@ -43,7 +43,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onOpenCatalog }) 
 
         <div className="relative flex items-center gap-3.5">
           <img
-            src="/duta-agri-logo.png"
+            src="/petedahnu-logo.png"
             alt="Logo PT Duta Agri Nusantara"
             className="h-12 w-12 rounded-xl bg-white p-0.5"
             style={{ objectFit: 'contain' }}
@@ -77,7 +77,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onOpenCatalog }) 
         <div className="w-full max-w-md">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <img
-              src="/duta-agri-logo.png"
+              src="/petedahnu-logo.png"
               alt="Logo PT Duta Agri Nusantara"
               className="h-11 w-11 rounded-xl bg-white p-0.5 shadow-sm"
               style={{ objectFit: 'contain' }}
